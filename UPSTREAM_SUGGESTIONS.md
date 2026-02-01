@@ -37,7 +37,20 @@ Benefits:
 # Detect missing pg_isready and fall back to Python
 if ! command -v pg_isready &> /dev/null; then
     # Use Python/psycopg2 to test connectivity
-    python3 -c "import psycopg2; conn = psycopg2.connect(...)"
+    # Password should be passed via PGPASSWORD env var for security
+    python3 -c "
+import psycopg2
+import os
+conn = psycopg2.connect(
+    host='db-host',
+    port='5432',
+    dbname='database_name',
+    user='db_user',
+    password=os.environ.get('PGPASSWORD'),
+    connect_timeout=2
+)
+conn.close()
+"
 fi
 ```
 Benefits:
@@ -45,6 +58,7 @@ Benefits:
 - No image changes required
 - Uses already-installed psycopg2 library
 - More thorough test (actual DB connection vs. just readiness check)
+- Secure password handling via environment variable
 
 **This fork implements Option 2**, providing immediate relief for self-hosters without requiring upstream image changes.
 

@@ -106,6 +106,7 @@ wait_for_postgres() {
   local use_python=false
   local script_dir
   # Get the directory of this script with error handling
+  # Fallback to /scripts which is where scripts are mounted in Docker (see simple-login-compose.yaml)
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || script_dir="/scripts"
   local python_check_script="$script_dir/check_db_connection.py"
   
@@ -136,6 +137,8 @@ wait_for_postgres() {
     if [ "$use_python" = true ]; then
       # Use Python script to check database connectivity
       # Password is passed via PGPASSWORD env var to avoid exposure in process listings
+      # Note: Errors are suppressed during retry loop to avoid log spam (connection attempts every 2s)
+      # If the check ultimately fails after timeout, detailed troubleshooting steps are provided
       if PGPASSWORD="$POSTGRES_PASSWORD" python3 "$python_check_script" "$host" "$port" "$db" "$user" 2>/dev/null; then
         log_info "PostgreSQL is ready! (verified via Python/psycopg2)"
         return 0
