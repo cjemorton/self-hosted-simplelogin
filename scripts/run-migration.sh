@@ -89,8 +89,12 @@ check_config() {
 wait_for_database() {
   log_info "Step 1/2: Checking database connectivity..."
   
+  # Use DB_WAIT_TIMEOUT from environment, default to 60 seconds
+  local timeout="${DB_WAIT_TIMEOUT:-60}"
+  log_info "Using database wait timeout: ${timeout}s"
+  
   if [ -f "$SCRIPT_DIR/wait-for-db.sh" ]; then
-    if bash "$SCRIPT_DIR/wait-for-db.sh" 60; then
+    if bash "$SCRIPT_DIR/wait-for-db.sh" "$timeout"; then
       return 0
     else
       log_error "Database readiness check failed"

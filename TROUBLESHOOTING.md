@@ -60,6 +60,12 @@ The migration service starts before PostgreSQL is fully initialized.
 
 **Solution:**
 - The new `run-migration.sh` script includes robust database waiting logic
+- By default, it waits 60 seconds for the database to be ready
+- If your database takes longer to initialize, increase the timeout:
+  ```bash
+  # Add to .env file
+  DB_WAIT_TIMEOUT=120  # Wait up to 120 seconds
+  ```
 - Check postgres logs: `docker logs sl-db`
 - Verify healthcheck is passing: `docker ps` (should show "healthy" status)
 
@@ -305,11 +311,28 @@ Runs database migrations with comprehensive error handling.
 bash scripts/run-migration.sh
 ```
 
+**Environment variables:**
+- `DB_WAIT_TIMEOUT` - Timeout in seconds for database to be ready (default: 60)
+
 **Features:**
 - Waits for database to be ready
 - Runs Alembic migrations
 - Provides detailed error messages
 - Suggests troubleshooting steps
+
+**Increasing Database Wait Timeout:**
+
+If your database takes longer to initialize, you can increase the wait timeout:
+
+```bash
+# Add to .env file
+DB_WAIT_TIMEOUT=120  # Wait up to 120 seconds
+```
+
+This is particularly useful for:
+- Slow hardware or resource-constrained systems
+- First-time database initialization
+- Large databases with long recovery times
 
 ### preflight-check.sh
 
