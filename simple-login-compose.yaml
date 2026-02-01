@@ -5,6 +5,7 @@ x-sl-defaults: &sl-defaults
     - ./pgp:/sl/pgp
     - ./upload:/code/static/upload
     - ./dkim.key:/dkim.key
+    - ./scripts:/scripts:ro
 
 services:
 
@@ -18,15 +19,16 @@ services:
     healthcheck:
       test: [ "CMD-SHELL", "PGPASSWORD=$$POSTGRES_PASSWORD pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1" ]
       interval: 10s
-      retries: 3
-      start_period: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     volumes:
       - ./db:/var/lib/postgresql/data
     restart: unless-stopped
 
   migration:
     <<: *sl-defaults
-    command: [ "alembic", "upgrade", "head" ]
+    command: [ "bash", "/scripts/run-migration.sh" ]
     container_name: sl-migration
     depends_on:
       postgres:
