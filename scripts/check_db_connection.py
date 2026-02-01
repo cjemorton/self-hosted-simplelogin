@@ -23,8 +23,8 @@ import os
 
 def check_connection(host, port, dbname, user, password):
     """Test database connection using psycopg2"""
+    import psycopg2
     try:
-        import psycopg2
         conn = psycopg2.connect(
             host=host,
             port=port,
@@ -35,7 +35,9 @@ def check_connection(host, port, dbname, user, password):
         )
         conn.close()
         return True
-    except Exception:
+    except (psycopg2.Error, OSError) as e:
+        # Catch database connection errors and network errors
+        # but allow system signals (KeyboardInterrupt, SystemExit) to propagate
         return False
 
 def main():
