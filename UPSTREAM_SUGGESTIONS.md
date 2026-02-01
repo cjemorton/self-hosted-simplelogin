@@ -16,13 +16,26 @@ This fork has added comprehensive reliability and diagnostic tooling to address 
 - Tests both `pg_isready` AND actual query execution
 - Provides clear logging of connection attempts
 - Offers actionable troubleshooting steps on failure
+- Allows configurable timeout via environment variable
 
-**Implementation:** See `scripts/wait-for-db.sh`
+**Implementation:** See `scripts/wait-for-db.sh` and `scripts/run-migration.sh`
+
+**Key Features:**
+- Configurable timeout via `DB_WAIT_TIMEOUT` environment variable (default: 60s)
+- Allows users to adjust wait time for slow hardware or large databases
+- Backward compatible - defaults to 60s if not configured
 
 **Benefits:**
 - Eliminates race conditions on fresh deployments
 - Reduces "migration failed" support tickets by ~80%
 - Provides better debugging information
+- Flexible for different deployment environments
+
+**Usage:**
+```bash
+# In .env file
+DB_WAIT_TIMEOUT=120  # Wait up to 120 seconds for database
+```
 
 **Integration Options:**
 1. **Minimal:** Add wait logic directly in the migration entrypoint
