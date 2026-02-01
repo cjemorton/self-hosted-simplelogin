@@ -14,20 +14,9 @@
 
 set -euo pipefail
 
-# Debug: Log what we received
-echo "[DEBUG] wait-for-db.sh called with $# arguments" >&2
-if [ $# -gt 0 ]; then
-  echo "[DEBUG] Argument 1: '$1'" >&2
-else
-  echo "[DEBUG] No arguments provided" >&2
-fi
-echo "[DEBUG] DB_WAIT_TIMEOUT env var: '${DB_WAIT_TIMEOUT:-<not set>}'" >&2
-
 # Configuration
 TIMEOUT="${1:-60}"  # Default 60 seconds timeout
 RETRY_INTERVAL=2    # Check every 2 seconds
-
-echo "[DEBUG] TIMEOUT variable set to: $TIMEOUT" >&2
 
 # Note: The SimpleLogin Docker image does not include PostgreSQL client tools
 # (pg_isready, psql). This script automatically falls back to using Python/psycopg2
