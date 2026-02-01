@@ -18,6 +18,10 @@ set -euo pipefail
 TIMEOUT="${1:-60}"  # Default 60 seconds timeout
 RETRY_INTERVAL=2    # Check every 2 seconds
 
+# Note: The SimpleLogin Docker image does not include PostgreSQL client tools
+# (pg_isready, psql). This script automatically falls back to using Python/psycopg2
+# which is available in the image and provides a more thorough database connection test.
+
 # Parse POSTGRES_HOST and PORT from DB_URI if not set directly
 # DB_URI format: postgresql://user:password@host:port/database
 if [ -z "${POSTGRES_HOST:-}" ] && [ -n "${DB_URI:-}" ]; then
@@ -98,18 +102,65 @@ wait_for_postgres() {
   log_info "Host: $host:$port, Database: $db, User: $user"
   log_info "Timeout: ${TIMEOUT}s, Check interval: ${RETRY_INTERVAL}s"
   
+  # Check if pg_isready is available
+  local use_python=false
+  local script_dir
+  # Get the directory of this script with error handling
+  # Fallback to /scripts which is where scripts are mounted in Docker (see simple-login-compose.yaml)
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || script_dir="/scripts"
+  local python_check_script="$script_dir/check_db_connection.py"
+  
+  if ! command -v pg_isready &> /dev/null; then
+    log_warn "pg_isready not found, using Python/psycopg2 for database checks"
+    use_python=true
+    
+    # Verify Python and psycopg2 are available
+    if ! command -v python3 &> /dev/null; then
+      log_error "Neither pg_isready nor python3 is available for database connectivity checks"
+      return 1
+    fi
+    
+    if ! python3 -c "import psycopg2" 2>/dev/null; then
+      log_error "Python3 is available but psycopg2 module is not installed"
+      log_error "Cannot perform database connectivity checks without pg_isready or psycopg2"
+      return 1
+    fi
+    
+    # Verify check script exists
+    if [ ! -f "$python_check_script" ]; then
+      log_error "Python check script not found: $python_check_script"
+      return 1
+    fi
+  fi
+  
   while [ $elapsed -lt "$TIMEOUT" ]; do
-    # Try to connect using pg_isready
-    if PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h "$host" -p "$port" -U "$user" -d "$db" -t 1 > /dev/null 2>&1; then
-      log_info "PostgreSQL is accepting connections"
-      
-      # Double-check with a simple query
-      if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$host" -p "$port" -U "$user" -d "$db" -c "SELECT 1;" > /dev/null 2>&1; then
-        log_info "Database query test successful"
-        log_info "PostgreSQL is ready!"
+    if [ "$use_python" = true ]; then
+      # Use Python script to check database connectivity
+      # Password is passed via PGPASSWORD env var to avoid exposure in process listings
+      # Note: Errors are suppressed during retry loop to avoid log spam (connection attempts every 2s)
+      # If the check ultimately fails after timeout, detailed troubleshooting steps are provided
+      if PGPASSWORD="$POSTGRES_PASSWORD" python3 "$python_check_script" "$host" "$port" "$db" "$user" 2>/dev/null; then
+        log_info "PostgreSQL is ready! (verified via Python/psycopg2)"
         return 0
-      else
-        log_warn "pg_isready succeeded but query failed, retrying..."
+      fi
+    else
+      # Use pg_isready for database connectivity check
+      if PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h "$host" -p "$port" -U "$user" -d "$db" -t 1 > /dev/null 2>&1; then
+        log_info "PostgreSQL is accepting connections"
+        
+        # Double-check with a simple query if psql is available
+        if command -v psql &> /dev/null; then
+          if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$host" -p "$port" -U "$user" -d "$db" -c "SELECT 1;" > /dev/null 2>&1; then
+            log_info "Database query test successful"
+            log_info "PostgreSQL is ready!"
+            return 0
+          else
+            log_warn "pg_isready succeeded but query failed, retrying..."
+          fi
+        else
+          log_info "PostgreSQL is ready! (pg_isready succeeded, psql not available for query test)"
+          return 0
+        fi
       fi
     fi
     

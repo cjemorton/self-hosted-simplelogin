@@ -360,10 +360,12 @@ The repository includes several diagnostic scripts to help identify and resolve 
 
 ### Common Issues
 
-**Migration fails with exit code 1:**
-- The new migration wrapper (`run-migration.sh`) includes robust database waiting and detailed error reporting
+**Migration fails with exit code 1 or 2 (timeout):**
+- **Root cause:** The SimpleLogin Docker image doesn't include PostgreSQL client tools. This has been fixed with automatic Python/psycopg2 fallback.
+- The migration wrapper (`run-migration.sh`) now automatically detects available tools and uses Python for database connectivity checks
 - By default, it waits 60 seconds for the database. Increase this if needed: `DB_WAIT_TIMEOUT=120` in `.env`
 - Check the migration logs: `docker logs sl-migration`
+- You should see: `[WARN] pg_isready not found, using Python/psycopg2 for database checks` followed by `[INFO] PostgreSQL is ready!`
 - See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#migration-failures) for detailed solutions
 
 **Database connection issues:**
