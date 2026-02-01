@@ -323,13 +323,60 @@ Run SimpleLogin from Docker containers:
 
 #### Running the application
 
-Run the application using the following commands:
+**Before starting the stack**, run the pre-flight check to validate your configuration:
+
+```sh
+bash scripts/preflight-check.sh
+```
+
+This validates that all required environment variables are set, Docker is properly configured, and all necessary files are present.
+
+If all checks pass, run the application using the following commands:
 
 ```sh
 docker compose up --detach --remove-orphans --build && docker compose logs -f
 ```
 
+Or use the provided convenience script:
+
+```sh
+./up.sh
+```
+
 You may want to setup [Certificate Authority Authorization (CAA)](#caa) at this point.
+
+## Troubleshooting
+
+If you experience any issues during setup or operation, please refer to the comprehensive [TROUBLESHOOTING.md](TROUBLESHOOTING.md) guide.
+
+### Quick Diagnostic Tools
+
+The repository includes several diagnostic scripts to help identify and resolve issues:
+
+- **`scripts/preflight-check.sh`** - Run before starting the stack to validate configuration
+- **`scripts/diagnose.sh`** - Collect comprehensive diagnostic information for troubleshooting
+- **`scripts/wait-for-db.sh`** - Ensure database is ready (used internally by migration)
+- **`scripts/run-migration.sh`** - Run database migrations with enhanced error reporting (used internally)
+
+### Common Issues
+
+**Migration fails with exit code 1:**
+- The new migration wrapper (`run-migration.sh`) includes robust database waiting and detailed error reporting
+- Check the migration logs: `docker logs sl-migration`
+- See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#migration-failures) for detailed solutions
+
+**Database connection issues:**
+- Verify your database credentials in `.env`
+- Check database status: `docker ps | grep sl-db`
+- See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#database-connection-issues)
+
+**For any other issues**, run the diagnostic tool and review the output:
+
+```sh
+bash scripts/diagnose.sh
+```
+
+This creates a comprehensive diagnostic report that can help identify the root cause of issues.
 
 ## Next steps
 
