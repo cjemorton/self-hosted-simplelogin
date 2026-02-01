@@ -104,6 +104,9 @@ wait_for_postgres() {
   
   # Check if pg_isready is available
   local use_python=false
+  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local python_check_script="$script_dir/check_db_connection.py"
+  
   if ! command -v pg_isready &> /dev/null; then
     log_warn "pg_isready not found, using Python/psycopg2 for database checks"
     use_python=true
@@ -119,28 +122,19 @@ wait_for_postgres() {
       log_error "Cannot perform database connectivity checks without pg_isready or psycopg2"
       return 1
     fi
+    
+    # Verify check script exists
+    if [ ! -f "$python_check_script" ]; then
+      log_error "Python check script not found: $python_check_script"
+      return 1
+    fi
   fi
   
   while [ $elapsed -lt "$TIMEOUT" ]; do
     if [ "$use_python" = true ]; then
-      # Use Python/psycopg2 to check database connectivity
-      if python3 -c "
-import psycopg2
-import sys
-try:
-    conn = psycopg2.connect(
-        host='$host',
-        port='$port',
-        dbname='$db',
-        user='$user',
-        password='$POSTGRES_PASSWORD',
-        connect_timeout=2
-    )
-    conn.close()
-    sys.exit(0)
-except Exception as e:
-    sys.exit(1)
-" 2>/dev/null; then
+      # Use Python script to check database connectivity
+      # Password is passed via PGPASSWORD env var to avoid exposure in process listings
+      if PGPASSWORD="$POSTGRES_PASSWORD" python3 "$python_check_script" "$host" "$port" "$db" "$user" 2>/dev/null; then
         log_info "PostgreSQL is ready! (verified via Python/psycopg2)"
         return 0
       fi
