@@ -75,11 +75,28 @@ check_env_file() {
 # Load .env file
 load_env() {
   if [ -f "$ENV_FILE" ]; then
-    # Export all variables from .env file
-    set -a
-    # shellcheck disable=SC1090
-    source "$ENV_FILE"
-    set +a
+    # Parse .env file more carefully, avoiding bash syntax errors
+    # Only export simple VAR=value lines, skip arrays and complex syntax
+    while IFS= read -r line || [ -n "$line" ]; do
+      # Skip comments and empty lines
+      if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
+        continue
+      fi
+      
+      # Only process simple VAR=value lines (no arrays or complex expressions)
+      if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+        var_name="${BASH_REMATCH[1]}"
+        var_value="${BASH_REMATCH[2]}"
+        
+        # Skip lines with array syntax or function calls
+        if [[ "$var_value" =~ ^\[.*\]$ ]] || [[ "$var_value" =~ \$\( ]]; then
+          continue
+        fi
+        
+        # Export the variable
+        export "${var_name}=${var_value}"
+      fi
+    done < "$ENV_FILE"
   fi
 }
 
