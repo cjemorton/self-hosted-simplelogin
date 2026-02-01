@@ -29,6 +29,10 @@ RETRY_INTERVAL=2    # Check every 2 seconds
 
 echo "[DEBUG] TIMEOUT variable set to: $TIMEOUT" >&2
 
+# Note: The SimpleLogin Docker image does not include PostgreSQL client tools
+# (pg_isready, psql). This script automatically falls back to using Python/psycopg2
+# which is available in the image and provides a more thorough database connection test.
+
 # Parse POSTGRES_HOST and PORT from DB_URI if not set directly
 # DB_URI format: postgresql://user:password@host:port/database
 if [ -z "${POSTGRES_HOST:-}" ] && [ -n "${DB_URI:-}" ]; then

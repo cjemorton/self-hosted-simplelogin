@@ -4,7 +4,49 @@ This document contains recommendations for the official SimpleLogin project base
 
 ## Executive Summary
 
-This fork has added comprehensive reliability and diagnostic tooling to address common issues with the `sl-migration` service and general deployment troubleshooting. These improvements significantly reduce support burden and improve the self-hosting experience.
+This fork has identified and fixed a critical issue with the `sl-migration` service and added comprehensive reliability and diagnostic tooling. These improvements significantly reduce support burden and improve the self-hosting experience.
+
+## Critical Issue Found and Fixed
+
+### PostgreSQL Client Tools Missing from Docker Image
+
+**Problem:** The SimpleLogin Docker image (`simplelogin/app-ci`) does not include PostgreSQL client tools (`pg_isready`, `psql`). Migration scripts that rely on these tools silently fail, causing migrations to timeout even when the database is healthy and ready.
+
+**Root Cause:** 
+- Wait scripts use `pg_isready` to check database readiness
+- Command doesn't exist in the container
+- Error output is suppressed (redirected to /dev/null)
+- Script loops until timeout, giving appearance of database being unreachable
+- Users see timeout errors even with manual psql tests succeeding
+
+**Solution Options:**
+
+**Option 1: Add PostgreSQL client to Docker image (Recommended for Upstream)**
+```dockerfile
+# In Dockerfile
+RUN apt-get update && apt-get install -y postgresql-client && apt-get clean
+```
+Benefits:
+- Simple, standard approach
+- Enables use of battle-tested pg_isready
+- Allows manual debugging with psql from container
+- Small image size increase (~10MB)
+
+**Option 2: Use Python/psycopg2 fallback (Implemented in this Fork)**
+```bash
+# Detect missing pg_isready and fall back to Python
+if ! command -v pg_isready &> /dev/null; then
+    # Use Python/psycopg2 to test connectivity
+    python3 -c "import psycopg2; conn = psycopg2.connect(...)"
+fi
+```
+Benefits:
+- Works with existing image
+- No image changes required
+- Uses already-installed psycopg2 library
+- More thorough test (actual DB connection vs. just readiness check)
+
+**This fork implements Option 2**, providing immediate relief for self-hosters without requiring upstream image changes.
 
 ## Recommendations for Official Repository
 

@@ -52,14 +52,14 @@ This creates a timestamped log file with:
 
 ### Migration Failures
 
-**Symptom:** `sl-migration` container exits with code 1
+**Symptom:** `sl-migration` container exits with code 1 or code 2
 
 #### Cause 1: Database Not Ready
 
 The migration service starts before PostgreSQL is fully initialized.
 
 **Solution:**
-- The new `run-migration.sh` script includes robust database waiting logic
+- The `run-migration.sh` script includes robust database waiting logic with automatic fallback
 - By default, it waits 60 seconds for the database to be ready
 - If your database takes longer to initialize, increase the timeout:
   ```bash
@@ -69,10 +69,13 @@ The migration service starts before PostgreSQL is fully initialized.
 - Check postgres logs: `docker logs sl-db`
 - Verify healthcheck is passing: `docker ps` (should show "healthy" status)
 
+**Technical Note:**
+The SimpleLogin Docker image does not include PostgreSQL client tools (`pg_isready`, `psql`). The wait-for-db.sh script automatically detects this and uses Python/psycopg2 (which is available in the image) to perform database connectivity checks. This ensures reliable database readiness detection regardless of which tools are available.
+
 **Manual verification:**
 ```bash
-# Check if database is ready
-docker compose exec postgres pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+# Check if database is ready from migration container
+docker compose exec migration python3 -c "import psycopg2; conn = psycopg2.connect('$DB_URI'); conn.close(); print('DB ready')"
 
 # Check database logs
 docker logs sl-db --tail 50
