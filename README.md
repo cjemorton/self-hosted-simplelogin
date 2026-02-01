@@ -362,6 +362,7 @@ The repository includes several diagnostic scripts to help identify and resolve 
 
 **Migration fails with exit code 1:**
 - The new migration wrapper (`run-migration.sh`) includes robust database waiting and detailed error reporting
+- By default, it waits 60 seconds for the database. Increase this if needed: `DB_WAIT_TIMEOUT=120` in `.env`
 - Check the migration logs: `docker logs sl-migration`
 - See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#migration-failures) for detailed solutions
 
