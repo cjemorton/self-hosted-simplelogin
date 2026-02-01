@@ -20,10 +20,10 @@ Exit codes:
 
 import sys
 import os
+import psycopg2
 
 def check_connection(host, port, dbname, user, password):
     """Test database connection using psycopg2"""
-    import psycopg2
     try:
         conn = psycopg2.connect(
             host=host,
@@ -35,9 +35,9 @@ def check_connection(host, port, dbname, user, password):
         )
         conn.close()
         return True
-    except (psycopg2.Error, OSError) as e:
+    except (psycopg2.Error, OSError):
         # Catch database connection errors and network errors
-        # but allow system signals (KeyboardInterrupt, SystemExit) to propagate
+        # System signals (KeyboardInterrupt, SystemExit) are allowed to propagate
         return False
 
 def main():
