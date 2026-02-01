@@ -104,7 +104,9 @@ wait_for_postgres() {
   
   # Check if pg_isready is available
   local use_python=false
-  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local script_dir
+  # Get the directory of this script with error handling
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || script_dir="/scripts"
   local python_check_script="$script_dir/check_db_connection.py"
   
   if ! command -v pg_isready &> /dev/null; then

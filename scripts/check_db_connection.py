@@ -51,7 +51,7 @@ def main():
     port = sys.argv[2]
     dbname = sys.argv[3]
     user = sys.argv[4]
-    password = os.environ.get('PGPASSWORD', '')
+    password = os.environ.get('PGPASSWORD')
     
     if not password:
         print("Error: PGPASSWORD environment variable not set", file=sys.stderr)
