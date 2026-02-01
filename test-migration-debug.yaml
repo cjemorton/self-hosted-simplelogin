@@ -1,0 +1,13 @@
+version: '3.8'
+
+x-sl-defaults: &sl-defaults
+  image: simplelogin/app-ci:v4.70.0
+  env_file: .env
+  volumes:
+    - ./scripts:/scripts:ro
+
+services:
+  test-migration:
+    <<: *sl-defaults
+    container_name: test-migration-debug
+    command: [ "bash", "/scripts/trace-timeout.sh" ]

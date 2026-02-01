@@ -89,9 +89,13 @@ check_config() {
 wait_for_database() {
   log_info "Step 1/2: Checking database connectivity..."
   
+  # Debug: Show raw environment variable value
+  log_debug "DB_WAIT_TIMEOUT environment variable: '${DB_WAIT_TIMEOUT:-<not set>}'"
+  
   # Use DB_WAIT_TIMEOUT from environment, default to 60 seconds
   local timeout="${DB_WAIT_TIMEOUT:-60}"
   log_info "Using database wait timeout: ${timeout}s"
+  log_debug "Calling wait-for-db.sh with argument: '$timeout'"
   
   if [ -f "$SCRIPT_DIR/wait-for-db.sh" ]; then
     if bash "$SCRIPT_DIR/wait-for-db.sh" "$timeout"; then

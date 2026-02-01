@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  test-env:
+    image: postgres:12.1
+    container_name: test-env-passing
+    env_file: .env
+    command: 
+      - bash
+      - -c
+      - |
+        echo "===== Environment Variable Test ====="
+        echo "DB_WAIT_TIMEOUT='${DB_WAIT_TIMEOUT}'"
+        echo "DB_WAIT_TIMEOUT from env: ${DB_WAIT_TIMEOUT:-NOT_SET}"
+        echo "POSTGRES_DB='${POSTGRES_DB}'"
+        echo "POSTGRES_USER='${POSTGRES_USER}'"
+        echo "====================================="
+        sleep 2

@@ -14,9 +14,20 @@
 
 set -euo pipefail
 
+# Debug: Log what we received
+echo "[DEBUG] wait-for-db.sh called with $# arguments" >&2
+if [ $# -gt 0 ]; then
+  echo "[DEBUG] Argument 1: '$1'" >&2
+else
+  echo "[DEBUG] No arguments provided" >&2
+fi
+echo "[DEBUG] DB_WAIT_TIMEOUT env var: '${DB_WAIT_TIMEOUT:-<not set>}'" >&2
+
 # Configuration
 TIMEOUT="${1:-60}"  # Default 60 seconds timeout
 RETRY_INTERVAL=2    # Check every 2 seconds
+
+echo "[DEBUG] TIMEOUT variable set to: $TIMEOUT" >&2
 
 # Parse POSTGRES_HOST and PORT from DB_URI if not set directly
 # DB_URI format: postgresql://user:password@host:port/database
@@ -98,18 +109,66 @@ wait_for_postgres() {
   log_info "Host: $host:$port, Database: $db, User: $user"
   log_info "Timeout: ${TIMEOUT}s, Check interval: ${RETRY_INTERVAL}s"
   
+  # Check if pg_isready is available
+  local use_python=false
+  if ! command -v pg_isready &> /dev/null; then
+    log_warn "pg_isready not found, using Python/psycopg2 for database checks"
+    use_python=true
+    
+    # Verify Python and psycopg2 are available
+    if ! command -v python3 &> /dev/null; then
+      log_error "Neither pg_isready nor python3 is available for database connectivity checks"
+      return 1
+    fi
+    
+    if ! python3 -c "import psycopg2" 2>/dev/null; then
+      log_error "Python3 is available but psycopg2 module is not installed"
+      log_error "Cannot perform database connectivity checks without pg_isready or psycopg2"
+      return 1
+    fi
+  fi
+  
   while [ $elapsed -lt "$TIMEOUT" ]; do
-    # Try to connect using pg_isready
-    if PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h "$host" -p "$port" -U "$user" -d "$db" -t 1 > /dev/null 2>&1; then
-      log_info "PostgreSQL is accepting connections"
-      
-      # Double-check with a simple query
-      if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$host" -p "$port" -U "$user" -d "$db" -c "SELECT 1;" > /dev/null 2>&1; then
-        log_info "Database query test successful"
-        log_info "PostgreSQL is ready!"
+    if [ "$use_python" = true ]; then
+      # Use Python/psycopg2 to check database connectivity
+      if python3 -c "
+import psycopg2
+import sys
+try:
+    conn = psycopg2.connect(
+        host='$host',
+        port='$port',
+        dbname='$db',
+        user='$user',
+        password='$POSTGRES_PASSWORD',
+        connect_timeout=2
+    )
+    conn.close()
+    sys.exit(0)
+except Exception as e:
+    sys.exit(1)
+" 2>/dev/null; then
+        log_info "PostgreSQL is ready! (verified via Python/psycopg2)"
         return 0
-      else
-        log_warn "pg_isready succeeded but query failed, retrying..."
+      fi
+    else
+      # Use pg_isready for database connectivity check
+      if PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h "$host" -p "$port" -U "$user" -d "$db" -t 1 > /dev/null 2>&1; then
+        log_info "PostgreSQL is accepting connections"
+        
+        # Double-check with a simple query if psql is available
+        if command -v psql &> /dev/null; then
+          if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$host" -p "$port" -U "$user" -d "$db" -c "SELECT 1;" > /dev/null 2>&1; then
+            log_info "Database query test successful"
+            log_info "PostgreSQL is ready!"
+            return 0
+          else
+            log_warn "pg_isready succeeded but query failed, retrying..."
+          fi
+        else
+          log_info "PostgreSQL is ready! (pg_isready succeeded, psql not available for query test)"
+          return 0
+        fi
       fi
     fi
     
