@@ -753,6 +753,11 @@ If any validation fails, the startup process will halt with clear error messages
    CF_DNS_API_TOKEN=your-token-here
    ```
 
+**Important notes:**
+- For domains with multi-part TLDs (e.g., `.co.uk`, `.com.au`), set `DOMAIN` in your `.env` to the exact zone name in Cloudflare (e.g., `example.co.uk`, not `app.example.co.uk`)
+- The pre-flight check uses a simple heuristic for certificate validation that assumes certificates in storage are valid (relies on Traefik's automatic renewal)
+- If you encounter issues with domain zone detection, the error message will list all accessible zones to help you identify the correct value for `DOMAIN`
+
 For other DNS providers, see: <https://go-acme.github.io/lego/dns/>
 
 ### Postfix configuration - Spamhaus

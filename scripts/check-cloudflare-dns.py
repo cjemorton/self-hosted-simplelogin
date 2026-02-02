@@ -118,6 +118,19 @@ def check_certificates_exist_and_valid(acme_storage_path, domains):
     
     Returns:
         (bool, str): (True if all certs valid, message describing status)
+    
+    Note: This function performs a basic check for certificate presence in the
+    ACME storage. It does not decode and validate the actual certificate expiration
+    date (NotAfter field) as that would require the cryptography library. Instead,
+    it relies on Traefik's behavior of updating certificates before expiration.
+    
+    If a certificate exists in storage, it's assumed to be recent enough to be valid.
+    For a more rigorous check, consider adding cryptography library and decoding
+    the certificate to check the NotAfter field. However, the current approach is
+    sufficient for the common case where certificates are renewed automatically.
+    
+    If this heuristic fails (e.g., Traefik failed to renew), the API validation
+    will run and provide clear error messages if credentials are invalid.
     """
     # Check if ACME storage file exists
     if not os.path.exists(acme_storage_path):
@@ -139,7 +152,7 @@ def check_certificates_exist_and_valid(acme_storage_path, domains):
     if not certificates:
         return False, "No certificates found in DNS resolver storage"
     
-    # Current time for expiration check
+    # Current time for expiration check (basic heuristic)
     now = datetime.now(timezone.utc)
     
     # Check each requested domain
@@ -157,13 +170,10 @@ def check_certificates_exist_and_valid(acme_storage_path, domains):
             if cert_domain == domain or cert_domain == f"*.{domain}":
                 found = True
                 
-                # Parse certificate info to check expiration
-                # Note: Traefik stores certificate data but we need to check NotAfter
-                # For simplicity, we'll assume if cert exists in storage, it's recent
-                # A more thorough check would decode the certificate
-                
-                # Basic heuristic: if certificate exists in the storage, it's likely valid
-                # unless it's very old (Traefik updates certs before expiry)
+                # Basic heuristic: if certificate exists in storage, assume it's valid
+                # Traefik typically updates certificates before expiration
+                # For more rigorous validation, would need to decode certificate
+                # and check NotAfter field using cryptography library
                 valid = True
                 messages.append(f"Certificate found for {domain}")
                 break
@@ -227,6 +237,16 @@ def test_cloudflare_api_connectivity(api_token, domain):
     
     Returns:
         (bool, str, dict): (success, error_message, zone_info)
+    
+    Note: This function uses a simple heuristic to extract the base domain from
+    subdomains (e.g., app.example.com -> example.com). It assumes the base domain
+    consists of the last two parts of the domain name. This works for most TLDs
+    (.com, .net, .org) but may not work correctly for multi-part TLDs like
+    .co.uk, .com.au, etc. For such domains, ensure DOMAIN in .env is set to the
+    exact zone name in Cloudflare (e.g., example.co.uk, not app.example.co.uk).
+    
+    The function will list all accessible zones and provide clear error messages
+    if the domain is not found, allowing users to identify and fix the mismatch.
     """
     try:
         import urllib.request
@@ -234,9 +254,13 @@ def test_cloudflare_api_connectivity(api_token, domain):
         
         # Extract base domain (handle subdomains)
         # For example: app.example.com -> example.com
+        # Note: This simple approach works for most TLDs but not multi-part TLDs
+        # For multi-part TLDs like .co.uk, users should set DOMAIN to the exact
+        # Cloudflare zone name (e.g., example.co.uk)
         domain_parts = domain.split('.')
         if len(domain_parts) > 2:
             # Assume the last two parts are the base domain
+            # This works for .com, .net, .org but not .co.uk, .com.au, etc.
             base_domain = '.'.join(domain_parts[-2:])
         else:
             base_domain = domain

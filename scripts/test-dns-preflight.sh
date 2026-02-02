@@ -4,6 +4,10 @@
 #
 # This script tests various scenarios for the DNS-01 certificate pre-flight check
 # to ensure it behaves correctly under different configurations.
+#
+# Note: Using 'set -uo pipefail' without '-e' intentionally. The '-e' flag would
+# cause the script to exit on the first test failure, preventing us from seeing
+# all test results. Each test function explicitly handles errors and reports them.
 
 set -uo pipefail
 
