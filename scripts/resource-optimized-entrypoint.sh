@@ -88,6 +88,26 @@ apply_overrides() {
 
 apply_overrides
 
+# Detect MTA-STS configuration for app service (only once, not for email/job-runner)
+detect_mta_sts() {
+  if [ "$SERVICE_TYPE" = "app" ] && [ -f /scripts/detect-mta-sts.sh ]; then
+    log_info "Detecting MTA-STS configuration..."
+    
+    # Run MTA-STS detection
+    if /scripts/detect-mta-sts.sh; then
+      # Export MTA-STS configuration
+      eval "$(/scripts/detect-mta-sts.sh --export 2>/dev/null || echo '')"
+    else
+      # Detection failed or not found, default to internal
+      eval "$(/scripts/detect-mta-sts.sh --export 2>/dev/null || echo '')"
+    fi
+    
+    echo "" >&2
+  fi
+}
+
+detect_mta_sts
+
 # Build service-specific command with dynamic configuration
 build_command() {
   local service=$1
