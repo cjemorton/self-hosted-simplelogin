@@ -61,6 +61,11 @@ done
 # Shift past the parsed options
 shift $((OPTIND-1))
 
+# Helper function to extract variable from .env file
+get_env_var() {
+  grep "^$1=" .env 2>/dev/null | cut -d'=' -f2
+}
+
 # Check if .env exists and load it to validate SL_VERSION
 if [ ! -f .env ]; then
   echo "ERROR: .env file not found!"
@@ -70,11 +75,10 @@ if [ ! -f .env ]; then
 fi
 
 # Load configuration from .env
-# Use grep with || true to handle variables that may not be set (like SL_CUSTOM_IMAGE)
-SL_VERSION=$(grep "^SL_VERSION=" .env 2>/dev/null | cut -d'=' -f2)
-SL_DOCKER_REPO=$(grep "^SL_DOCKER_REPO=" .env 2>/dev/null | cut -d'=' -f2)
-SL_IMAGE=$(grep "^SL_IMAGE=" .env 2>/dev/null | cut -d'=' -f2)
-SL_CUSTOM_IMAGE=$(grep "^SL_CUSTOM_IMAGE=" .env 2>/dev/null | cut -d'=' -f2)
+SL_VERSION=$(get_env_var "SL_VERSION")
+SL_DOCKER_REPO=$(get_env_var "SL_DOCKER_REPO")
+SL_IMAGE=$(get_env_var "SL_IMAGE")
+SL_CUSTOM_IMAGE=$(get_env_var "SL_CUSTOM_IMAGE")
 
 # Determine the Docker image to use (single source of truth: .env)
 if [ -n "$SL_CUSTOM_IMAGE" ]; then
