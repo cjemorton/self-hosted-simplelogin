@@ -2,7 +2,9 @@
 
 This is a self-hosted docker-compose configuration for [SimpleLogin](https://simplelogin.io).
 
-> **Note:** This fork uses a testing version of the SimpleLogin app from the upstream fork at [cjemorton/simplelogin-app](https://github.com/cjemorton/simplelogin-app), using Docker image `clem16/simplelogin-app:v2026.02.02-staging-test-02`.
+> **⚠️ Important:** This fork uses a testing version of the SimpleLogin app from the upstream fork at [cjemorton/simplelogin-app](https://github.com/cjemorton/simplelogin-app), using Docker image `clem16/simplelogin-app:v2026.02.02-staging-test-02`.
+>
+> **Do not use official SimpleLogin image versions** (like `v4.70.0` from `simplelogin/app-ci`) as they are not compatible with this fork. The startup scripts will validate your `.env` configuration and prevent mismatched versions.
 
 ## Key Features
 
@@ -495,6 +497,26 @@ The repository includes several diagnostic scripts to help identify and resolve 
 
 ### Common Issues
 
+**Docker image not found (manifest unknown):**
+
+If you see an error like:
+```
+Error response from daemon: manifest for clem16/simplelogin-app:v4.70.0 not found: manifest unknown: manifest unknown
+```
+
+This means your `.env` file has the wrong `SL_VERSION`. The startup scripts will now detect and prevent this issue automatically.
+
+**Solution:**
+1. Check your `.env` file: `grep SL_VERSION .env`
+2. Update it to the correct version for this fork:
+   ```
+   SL_VERSION=v2026.02.02-staging-test-02
+   ```
+3. The version must match what's in `.env.example`
+4. Run `./up.sh` or `./startup.sh` again - they will validate the version before starting
+
+**Why this happens:** This fork uses a custom Docker image (`clem16/simplelogin-app`) instead of the official image (`simplelogin/app-ci`). Official versions like `v4.70.0` do not exist in the custom image repository.
+
 **Migration fails with exit code 1 or 2 (timeout):**
 - **Root cause:** The SimpleLogin Docker image doesn't include PostgreSQL client tools. This has been fixed with automatic Python/psycopg2 fallback.
 - The migration wrapper (`run-migration.sh`) now automatically detects available tools and uses Python for database connectivity checks
@@ -650,13 +672,13 @@ docker compose stop && docker compose up --detach
 ```
 
 After successfully upgrading to `v4.6.x-beta` you might want to upgrade
-to the latest stable version. Change the `SL_IMAGE` and `SL_VERSION`
-variables from the `.env` file:
+to the latest version. **For this custom fork**, ensure your `.env` file has:
 
 ```env
-SL_VERSION=v4.70.0
-SL_IMAGE=app-ci
+SL_VERSION=v2026.02.02-staging-test-02
 ```
+
+**Important**: This fork uses a custom Docker image `clem16/simplelogin-app` instead of the official `simplelogin/app-ci`. The official versions (like v4.70.0) will not work with this fork.
 
 **Caution**: some [underpowered VPS](https://github.com/springcomp/self-hosted-simplelogin/issues/12#issuecomment-3160394621) might exhibit some WORKER_TIMEOUT errors
 when running the `sl-app` image. To mitigate this issue, you may want to
@@ -720,7 +742,9 @@ In-place upgrade refers to the fact that you will upgrade the stack from the pre
 
 This is the easiest upgrade path as you only need to change the docker-compose and setup files. If you cloned this repository, you most likely need to use `git pull` to upgrade to the latest version.
 
-**Prerequisites**: make sure you are running a recent version of SimpleLogin. This section assumes you are running `app-ci:v4.70.0`.
+**Prerequisites**: make sure you are running a recent version of SimpleLogin. 
+
+**Note**: This fork uses the custom Docker image `clem16/simplelogin-app:v2026.02.02-staging-test-02`. If you're migrating from the official SimpleLogin, you'll need to update your `.env` file to use the correct version (see `.env.example`).
 
 1. Stop the stack using `. ./down.sh`.
 1. Upgrade to the latest version of the files.

@@ -70,6 +70,27 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < .env
 set +a
 
+# Validate SL_VERSION for custom fork
+EXPECTED_VERSION="v2026.02.02-staging-test-02"
+if [ -n "$SL_VERSION" ] && [ "$SL_VERSION" != "$EXPECTED_VERSION" ]; then
+  log_error "Incorrect SL_VERSION detected: $SL_VERSION"
+  log_error "This fork uses a custom Docker image: clem16/simplelogin-app:$EXPECTED_VERSION"
+  log_error ""
+  log_error "Please update your .env file:"
+  log_error "  SL_VERSION=$EXPECTED_VERSION"
+  log_error ""
+  log_error "Note: The official SimpleLogin image (simplelogin/app-ci) versions like v4.70.0"
+  log_error "      are not compatible with this fork's custom image (clem16/simplelogin-app)."
+  exit 1
+elif [ -z "$SL_VERSION" ]; then
+  log_error "SL_VERSION is not set in .env file"
+  log_error "Please set: SL_VERSION=$EXPECTED_VERSION"
+  exit 1
+fi
+
+log_pass "Using correct Docker image version: clem16/simplelogin-app:$SL_VERSION"
+echo ""
+
 # Detect MTA-STS configuration
 if [ -f scripts/detect-mta-sts.sh ]; then
   log_info "Detecting MTA-STS configuration..."
