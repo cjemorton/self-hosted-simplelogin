@@ -6,6 +6,7 @@ This guide helps you diagnose and resolve common issues when self-hosting Simple
 
 - [Quick Diagnostic Tools](#quick-diagnostic-tools)
 - [Common Issues](#common-issues)
+  - [Resource and Performance Issues](#resource-and-performance-issues)
   - [Migration Failures](#migration-failures)
   - [Database Connection Issues](#database-connection-issues)
   - [Container Startup Issues](#container-startup-issues)
@@ -17,6 +18,20 @@ This guide helps you diagnose and resolve common issues when self-hosting Simple
 ## Quick Diagnostic Tools
 
 Before starting, run these diagnostic scripts to identify issues:
+
+### Resource Detection
+
+Check your system resources and optimal configuration:
+
+```bash
+bash scripts/detect-resources.sh
+```
+
+This shows:
+- ✓ Available RAM and CPU
+- ✓ Recommended configuration
+- ✓ Resource tier (CRITICAL/LOW/MEDIUM/HIGH/OPTIMAL)
+- ✓ Warnings if resources are insufficient
 
 ### Pre-flight Check
 
@@ -49,6 +64,140 @@ This creates a timestamped log file with:
 - Network and volume information
 
 ## Common Issues
+
+### Resource and Performance Issues
+
+**For comprehensive guidance on running SimpleLogin on low-resource systems, see [LOW_RESOURCE_GUIDE.md](LOW_RESOURCE_GUIDE.md).**
+
+#### Insufficient Memory
+
+**Symptom:** Containers crash with "Out of Memory" (OOM) errors, system becomes unresponsive
+
+**Quick Check:**
+```bash
+# Check available memory
+free -h
+
+# Check container memory usage
+docker stats
+
+# View resource dashboard
+bash scripts/detect-resources.sh
+```
+
+**Solution:**
+
+1. **Enable Low-Memory Mode** (Automatic optimization for < 768MB RAM):
+   ```bash
+   # Add to .env
+   LOW_MEMORY_MODE=true
+   
+   # Restart containers
+   docker compose restart
+   ```
+
+2. **Reduce Memory Limits**:
+   ```bash
+   # Add to .env for 512MB RAM system
+   SL_APP_MEMORY_LIMIT=256M
+   SL_EMAIL_MEMORY_LIMIT=128M
+   SL_JOB_MEMORY_LIMIT=128M
+   SL_DB_MEMORY_LIMIT=256M
+   
+   docker compose up -d
+   ```
+
+3. **Minimize Workers**:
+   ```bash
+   # Add to .env
+   SL_GUNICORN_WORKERS_OVERRIDE=1
+   SL_DB_POOL_SIZE_OVERRIDE=3
+   
+   docker compose restart app
+   ```
+
+4. **Enable Swap** (helps but slows performance):
+   ```bash
+   sudo fallocate -l 1G /swapfile
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   ```
+
+#### Worker Timeout Errors
+
+**Symptom:** "Worker timeout" in logs, requests fail with 502/504 errors
+
+**Solution:**
+```bash
+# Increase timeout for slow systems
+# Add to .env
+SL_GUNICORN_TIMEOUT_OVERRIDE=120
+
+# Restart
+docker compose restart app
+```
+
+#### Slow Performance
+
+**Symptom:** Web interface is very slow (> 10 seconds), emails delayed
+
+**Expected on Low-Resource Systems:**
+- This is normal on 512MB-768MB RAM systems
+- System prioritizes reliability over speed
+
+**Optimization Steps:**
+```bash
+# 1. Check current resource tier
+bash scripts/detect-resources.sh
+
+# 2. Verify optimal configuration is applied
+docker logs sl-app | grep -i "resource"
+
+# 3. If running background jobs slows things down, temporarily stop them
+docker compose stop job-runner
+
+# 4. Increase timeouts
+SL_GUNICORN_TIMEOUT_OVERRIDE=180
+
+# 5. Consider VPS upgrade if consistently too slow
+```
+
+#### Database Connection Pool Exhausted
+
+**Symptom:** "Too many connections" or "connection pool exhausted" errors
+
+**Solution:**
+```bash
+# Reduce pool size to match worker count
+# Add to .env
+SL_GUNICORN_WORKERS_OVERRIDE=2
+SL_DB_POOL_SIZE_OVERRIDE=5
+
+# Restart
+docker compose restart
+```
+
+#### Container Memory Limits Hit
+
+**Symptom:** Containers restart frequently, OOM in docker stats
+
+**Solution:**
+```bash
+# Check which container is hitting limits
+docker stats
+
+# Adjust limits for specific containers
+# Add to .env
+SL_APP_MEMORY_LIMIT=512M      # Increase if app is hitting limit
+SL_DB_MEMORY_LIMIT=512M       # Increase if database is hitting limit
+
+# Or enable low-memory mode for automatic tuning
+LOW_MEMORY_MODE=true
+
+docker compose up -d
+```
 
 ### Migration Failures
 
