@@ -2,9 +2,31 @@
 
 This is a self-hosted docker-compose configuration for [SimpleLogin](https://simplelogin.io).
 
+## Key Features
+
+- ✅ **Automatic Resource Optimization** - Detects system RAM/CPU and auto-configures for optimal performance
+- ✅ **Low-Resource Support** - Runs reliably on 512MB-768MB RAM VPS instances
+- ✅ **Graceful Degradation** - Never crashes due to resource constraints, automatically scales down
+- ✅ **Manual Override Options** - Full control over all configuration parameters
+- ✅ **Production Ready** - Includes Traefik, Postfix, and PostgreSQL with proper health checks
+
 ## Prerequisites
 
-- a Linux server (either a VM or dedicated server). This doc shows the setup for Ubuntu 18.04 LTS but the steps could be adapted for other popular Linux distributions. As most of components run as Docker container and Docker can be a bit heavy, having at least 2 GB of RAM is recommended. The server needs to have the port 25 (email), 80, 443 (for the webapp), 22 (so you can ssh into it) open.
+- a Linux server (either a VM or dedicated server). This doc shows the setup for Ubuntu 18.04 LTS but the steps could be adapted for other popular Linux distributions. 
+
+### Resource Requirements
+
+**SimpleLogin now includes automatic resource optimization!** The system detects available resources and configures itself accordingly.
+
+| Configuration | RAM | CPU | Status |
+|--------------|-----|-----|--------|
+| **Minimal** | 512MB-768MB | 1 vCPU | ✅ Fully functional (degraded mode) |
+| **Recommended** | 1-2 GB | 1-2 vCPU | ✅ Good performance |
+| **Optimal** | 4+ GB | 2+ vCPU | ✅ Excellent performance |
+
+**For detailed guidance on running SimpleLogin on resource-constrained systems, see [LOW_RESOURCE_GUIDE.md](LOW_RESOURCE_GUIDE.md).**
+
+- The server needs to have the port 25 (email), 80, 443 (for the webapp), 22 (so you can ssh into it) open.
 
 - a domain for which you can config the DNS. It could be a sub-domain. In the rest of the doc, let's say it's `mydomain.com` for the email and `app.mydomain.com` for SimpleLogin webapp. Please make sure to replace these values by your domain name and subdomain name whenever they appear in the doc. A trick we use is to download this README file on your computer and replace all `mydomain.com` and `app.mydomain.com` occurrences by your domain.
 

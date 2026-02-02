@@ -275,6 +275,48 @@ check_disk_space() {
   return 0
 }
 
+# Check system resources
+check_system_resources() {
+  log_info ""
+  log_info "Checking system resources..."
+  
+  # Check if detect-resources.sh exists
+  if [ ! -f "scripts/detect-resources.sh" ]; then
+    log_warn "Resource detection script not found (optional)"
+    return 0
+  fi
+  
+  # Run resource detection
+  if bash scripts/detect-resources.sh > /dev/null 2>&1; then
+    log_pass "Resource detection completed"
+    
+    # Get RAM info
+    if [ -f /proc/meminfo ]; then
+      local total_ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+      local total_ram_mb=$((total_ram_kb / 1024))
+      
+      if [ "$total_ram_mb" -lt 256 ]; then
+        log_fail "Insufficient RAM: ${total_ram_mb}MB (minimum: 512MB)"
+        log_info "SimpleLogin requires at least 512MB RAM to function properly"
+        return 1
+      elif [ "$total_ram_mb" -lt 512 ]; then
+        log_warn "Low RAM: ${total_ram_mb}MB detected"
+        log_info "System will run in degraded mode. Consider enabling LOW_MEMORY_MODE=true"
+        log_info "For guidance, see LOW_RESOURCE_GUIDE.md"
+      elif [ "$total_ram_mb" -lt 1024 ]; then
+        log_info "RAM: ${total_ram_mb}MB - Basic mode (consider 1GB+ for better performance)"
+      else
+        log_pass "RAM: ${total_ram_mb}MB - Sufficient"
+      fi
+    fi
+  else
+    log_warn "Resource detection completed with warnings"
+    log_info "Check scripts/detect-resources.sh output for details"
+  fi
+  
+  return 0
+}
+
 # Check network ports
 check_ports() {
   log_info ""
@@ -365,6 +407,7 @@ main() {
   check_docker || true
   check_docker_compose || true
   check_required_files || true
+  check_system_resources || true
   check_disk_space || true
   check_ports || true
   

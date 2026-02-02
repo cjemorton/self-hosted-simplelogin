@@ -25,6 +25,12 @@ services:
     volumes:
       - ./db:/var/lib/postgresql/data
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${SL_DB_MEMORY_LIMIT:-512M}
+        reservations:
+          memory: ${SL_DB_MEMORY_RESERVATION:-256M}
 
   migration:
     <<: *sl-defaults
@@ -45,6 +51,7 @@ services:
   app:
     <<: *sl-defaults
     container_name: sl-app
+    entrypoint: ["/scripts/resource-optimized-entrypoint.sh", "app"]
     networks:
       - traefik
       - default
@@ -52,6 +59,12 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: ${SL_APP_MEMORY_LIMIT:-1G}
+        reservations:
+          memory: ${SL_APP_MEMORY_RESERVATION:-256M}
     labels:
       - traefik.enable=true
       - traefik.http.services.sl-app.loadbalancer.server.port=7777
@@ -86,18 +99,30 @@ services:
 
   email:
     <<: *sl-defaults
-    command: ["python", "email_handler.py"]
+    entrypoint: ["/scripts/resource-optimized-entrypoint.sh", "email", "python", "email_handler.py"]
     container_name: sl-email
     restart: unless-stopped
     depends_on:
       init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: ${SL_EMAIL_MEMORY_LIMIT:-512M}
+        reservations:
+          memory: ${SL_EMAIL_MEMORY_RESERVATION:-128M}
 
   job-runner:
     <<: *sl-defaults
-    command: ["python", "job_runner.py"]
+    entrypoint: ["/scripts/resource-optimized-entrypoint.sh", "job-runner", "python", "job_runner.py"]
     container_name: sl-job-runner
     restart: unless-stopped
     depends_on:
       init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: ${SL_JOB_MEMORY_LIMIT:-512M}
+        reservations:
+          memory: ${SL_JOB_MEMORY_RESERVATION:-128M}
