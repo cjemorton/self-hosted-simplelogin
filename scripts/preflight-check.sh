@@ -359,6 +359,58 @@ check_ports() {
   return 0
 }
 
+# Check MTA-STS configuration
+check_mta_sts() {
+  log_info ""
+  log_info "Checking MTA-STS configuration..."
+  
+  local mta_sts_mode="${MTA_STS_MODE:-auto}"
+  
+  # Validate MTA_STS_MODE
+  case "$mta_sts_mode" in
+    auto|internal|external|disabled)
+      log_pass "MTA_STS_MODE is set to: $mta_sts_mode"
+      ;;
+    *)
+      log_fail "Invalid MTA_STS_MODE: $mta_sts_mode"
+      log_info "Must be one of: auto, internal, external, disabled"
+      return 1
+      ;;
+  esac
+  
+  # Check if detection script exists
+  if [ ! -f "scripts/detect-mta-sts.sh" ]; then
+    log_warn "MTA-STS detection script not found (scripts/detect-mta-sts.sh)"
+    return 0
+  fi
+  
+  # Run MTA-STS detection if mode is auto
+  if [ "$mta_sts_mode" = "auto" ] && [ -n "${DOMAIN:-}" ]; then
+    log_info "Running MTA-STS auto-detection..."
+    
+    if bash scripts/detect-mta-sts.sh "${DOMAIN}" > /dev/null 2>&1; then
+      log_pass "MTA-STS detection completed successfully"
+    else
+      log_info "External MTA-STS not found, will use internal hosting"
+    fi
+  elif [ "$mta_sts_mode" = "external" ]; then
+    log_info "MTA-STS mode is 'external' - ensure external hosting is configured"
+    log_warn "No validation performed for external MTA-STS configuration"
+  elif [ "$mta_sts_mode" = "disabled" ]; then
+    log_warn "MTA-STS is disabled (not recommended for production)"
+  fi
+  
+  # Warn about DNS requirements
+  if [ "$mta_sts_mode" != "disabled" ] && [ -n "${DOMAIN:-}" ]; then
+    log_info "MTA-STS requires the following DNS records:"
+    log_info "  1. A record: mta-sts.${DOMAIN} -> your server IP"
+    log_info "  2. TXT record: _mta-sts.${DOMAIN} -> v=STSv1; id=<timestamp>"
+    log_info "See README.md for detailed DNS configuration"
+  fi
+  
+  return 0
+}
+
 # Print summary
 print_summary() {
   echo ""
@@ -410,6 +462,7 @@ main() {
   check_system_resources || true
   check_disk_space || true
   check_ports || true
+  check_mta_sts || true
   
   # Print summary and exit with appropriate code
   if print_summary; then

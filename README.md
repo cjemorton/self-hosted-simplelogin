@@ -254,7 +254,47 @@ From Wikipedia <https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP
 
 [SMTP MTA Strict Transport Security](https://datatracker.ietf.org/doc/html/rfc8461) is an extra step you can take to broadcast the ability of your instance to receive and, optionally enforce, TSL-secure SMTP connections to protect email traffic.
 
-Create an **A record** that points `mta-sts.mydomain.com.` to your server IP.
+#### MTA-STS Configuration Options
+
+SimpleLogin supports **automatic detection** of external MTA-STS hosting. You can configure MTA-STS in three ways:
+
+1. **Auto-detection (Recommended)** - `MTA_STS_MODE=auto` (default)
+   - Automatically detects if MTA-STS is hosted externally (e.g., Cloudflare Pages)
+   - Falls back to internal hosting if external hosting is not detected
+   - Logs the detection result at startup for transparency
+
+2. **Internal Hosting** - `MTA_STS_MODE=internal`
+   - Forces internal hosting via Traefik (uses staticresponse plugin)
+   - MTA-STS file served at `https://mta-sts.mydomain.com/.well-known/mta-sts.txt`
+
+3. **External Hosting** - `MTA_STS_MODE=external`
+   - Disables internal hosting, assumes you're hosting MTA-STS externally
+   - Useful when using Cloudflare Pages, GitHub Pages, or other CDN services
+
+4. **Disabled** - `MTA_STS_MODE=disabled`
+   - Completely disables MTA-STS (not recommended for production)
+
+#### MTA-STS Environment Variables
+
+Add these to your `.env` file:
+
+```bash
+# MTA-STS hosting mode: auto, internal, external, or disabled
+MTA_STS_MODE=auto
+
+# MTA-STS policy mode: testing, enforce, or none
+# Start with 'testing' to monitor failures before enforcing
+MTA_STS_POLICY_MODE=testing
+
+# MTA-STS max_age in seconds (how long receivers cache the policy)
+# 86400 = 24 hours (good for testing)
+# 604800 = 7 days (recommended for production)
+MTA_STS_MAX_AGE=86400
+```
+
+#### DNS Configuration
+
+Create an **A record** that points `mta-sts.mydomain.com.` to your server IP (or CDN IP if using external hosting).
 
 To verify, the following command:
 
@@ -262,7 +302,7 @@ To verify, the following command:
 dig @1.1.1.1 mta-sts.mydomain.com a
 ```
 
-should return your server IP.
+should return your server IP (or CDN IP).
 
 Create a **TXT record** for `_mta-sts.mydomain.com.` with the following value:
 
@@ -289,6 +329,58 @@ should return a result similar to this one:
 ```dns
 _mta-sts.mydomain.com. 3600 IN TXT "v=STSv1; id=1689416399"
 ```
+
+#### External MTA-STS Hosting (Advanced)
+
+For high-availability or CDN caching benefits, you can host your MTA-STS file externally:
+
+**Option 1: Cloudflare Pages**
+1. Create a static site with a `.well-known/mta-sts.txt` file
+2. Deploy to Cloudflare Pages with custom domain `mta-sts.mydomain.com`
+3. Set `MTA_STS_MODE=external` in `.env`
+4. SimpleLogin will detect the external file at startup
+
+**Option 2: GitHub Pages**
+1. Create a repository with `.well-known/mta-sts.txt`
+2. Enable GitHub Pages with custom domain `mta-sts.mydomain.com`
+3. Set `MTA_STS_MODE=external` in `.env`
+
+**MTA-STS File Format:**
+```
+version: STSv1
+mode: testing
+mx: app.mydomain.com
+max_age: 86400
+```
+
+**Auto-detection behavior:**
+- On startup, SimpleLogin checks `https://mta-sts.mydomain.com/.well-known/mta-sts.txt`
+- If a valid file is found externally, internal hosting is disabled automatically
+- Detection results are logged for transparency
+- You can override auto-detection with manual `MTA_STS_MODE` setting
+
+#### Troubleshooting MTA-STS
+
+**Check MTA-STS detection at startup:**
+```bash
+docker compose logs sl-app | grep MTA-STS
+```
+
+**Manually test your MTA-STS file:**
+```bash
+curl https://mta-sts.mydomain.com/.well-known/mta-sts.txt
+```
+
+**Validate your MTA-STS configuration:**
+Use online tools like [Hardenize](https://www.hardenize.com/) or [MTA-STS Validator](https://aykevl.nl/apps/mta-sts/)
+
+**Common issues:**
+- **Double hosting conflict**: If both internal and external MTA-STS are active, they may serve different content
+  - Solution: Set `MTA_STS_MODE=external` to disable internal hosting
+- **Invalid external file**: Auto-detection will fail if the external file is malformed
+  - Solution: Validate your external MTA-STS file format and fix errors
+- **DNS not pointing to CDN**: External hosting won't work if DNS doesn't point to your CDN
+  - Solution: Update your `mta-sts.mydomain.com` A record to point to your CDN IP
 
 ### TLSRPT
 

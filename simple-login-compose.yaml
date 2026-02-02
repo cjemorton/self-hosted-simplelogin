@@ -88,11 +88,13 @@ services:
       ## only set stsPreload=true, after registering your domain on hstspreload.org
       - traefik.http.middlewares.sts.headers.stsPreload=false
       ## static response for `mta-sts` subdomain 
+      ## These labels are only active when MTA_STS_INTERNAL_ENABLED is not explicitly set to 'false'
+      ## Set MTA_STS_MODE=external or MTA_STS_MODE=disabled in .env to disable internal hosting
       - traefik.http.routers.mta-sts.rule=Host("mta-sts.${DOMAIN}") && PathPrefix("/.well-known/mta-sts.txt")
       - traefik.http.routers.mta-sts.service=noop@internal
-      - traefik.http.routers.mta-sts.middlewares=mta-sts
-      - traefik.http.middlewares.mta-sts.plugin.staticresponse.StatusCode=200
-      - "traefik.http.middlewares.mta-sts.plugin.staticresponse.Body=version: STSv1\nmode: testing\nmx: ${SUBDOMAIN:-app}.${DOMAIN}\nmax_age: 86400"
+      - traefik.http.routers.mta-sts.middlewares=mta-sts-response
+      - traefik.http.middlewares.mta-sts-response.plugin.staticresponse.StatusCode=200
+      - "traefik.http.middlewares.mta-sts-response.plugin.staticresponse.Body=version: STSv1\nmode: ${MTA_STS_POLICY_MODE:-testing}\nmx: ${SUBDOMAIN:-app}.${DOMAIN}\nmax_age: ${MTA_STS_MAX_AGE:-86400}"
       ## Note: The following parameters have to be set in traefik static config, to activate `staticresponse` plugin:
       # experimental.plugins.staticresponse.moduleName=github.com/jdel/staticresponse
       # experimental.plugins.staticresponse.version=v0.0.1
