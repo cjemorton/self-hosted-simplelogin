@@ -57,7 +57,10 @@ DOMAIN=example.com
 CF_DNS_API_TOKEN=test-token
 EOF
   
-  if python3 scripts/check-cloudflare-dns.py --env-file "$TEST_ENV" 2>&1 | grep -q "not 'dns'"; then
+  # Capture output first to avoid masking exit code with grep
+  output=$(python3 scripts/check-cloudflare-dns.py --env-file "$TEST_ENV" 2>&1 || true)
+  
+  if echo "$output" | grep -q "not 'dns'"; then
     log_pass "Test 1: Correctly skipped when LE_CHALLENGE != dns"
   else
     log_fail "Test 1: Did not skip as expected"
@@ -74,7 +77,10 @@ LE_DNS_PROVIDER=route53
 DOMAIN=example.com
 EOF
   
-  if python3 scripts/check-cloudflare-dns.py --env-file "$TEST_ENV" 2>&1 | grep -q "not 'cloudflare'"; then
+  # Capture output first to avoid masking exit code with grep
+  output=$(python3 scripts/check-cloudflare-dns.py --env-file "$TEST_ENV" 2>&1 || true)
+  
+  if echo "$output" | grep -q "not 'cloudflare'"; then
     log_pass "Test 2: Correctly skipped when provider != cloudflare"
   else
     log_fail "Test 2: Did not skip as expected"

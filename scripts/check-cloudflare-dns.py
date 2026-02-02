@@ -161,7 +161,6 @@ def check_certificates_exist_and_valid(acme_storage_path, domains):
     
     for domain in domains:
         found = False
-        valid = False
         
         for cert in certificates:
             cert_domain = cert.get('domain', {}).get('main', '')
@@ -174,16 +173,12 @@ def check_certificates_exist_and_valid(acme_storage_path, domains):
                 # Traefik typically updates certificates before expiration
                 # For more rigorous validation, would need to decode certificate
                 # and check NotAfter field using cryptography library
-                valid = True
                 messages.append(f"Certificate found for {domain}")
                 break
         
         if not found:
             all_valid = False
             messages.append(f"No certificate found for {domain}")
-        elif not valid:
-            all_valid = False
-            messages.append(f"Certificate for {domain} may be expired")
     
     status_msg = "; ".join(messages)
     return all_valid, status_msg
@@ -257,6 +252,11 @@ def test_cloudflare_api_connectivity(api_token, domain):
         # Note: This simple approach works for most TLDs but not multi-part TLDs
         # For multi-part TLDs like .co.uk, users should set DOMAIN to the exact
         # Cloudflare zone name (e.g., example.co.uk)
+        #
+        # Multi-part TLD handling limitation:
+        # - Input: app.example.co.uk → Extracted: co.uk (WRONG)
+        # - Workaround: Set DOMAIN=example.co.uk in .env (not app.example.co.uk)
+        # - The error message will list all accessible zones to help identify the issue
         domain_parts = domain.split('.')
         if len(domain_parts) > 2:
             # Assume the last two parts are the base domain
