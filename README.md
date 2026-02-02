@@ -470,11 +470,13 @@ If all checks pass, run the application using the following commands:
 docker compose up --detach --remove-orphans --build && docker compose logs -f
 ```
 
-Or use the provided convenience script:
+Or use the provided convenience script which automatically pulls the latest Docker images:
 
 ```sh
 ./up.sh
 ```
+
+**Note:** The `up.sh` and `startup.sh` scripts automatically pull the latest version of the custom Docker image (`clem16/simplelogin-app`) before starting the stack. This ensures you always have the most recent testing version.
 
 You may want to setup [Certificate Authority Authorization (CAA)](#caa) at this point.
 

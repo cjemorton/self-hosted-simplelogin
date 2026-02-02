@@ -103,6 +103,10 @@ export MTA_STS_EXTERNAL_DETECTED="${MTA_STS_EXTERNAL_DETECTED:-false}"
 export MTA_STS_STATUS="${MTA_STS_STATUS:-internal}"
 
 echo ""
+log_info "Pulling latest Docker images..."
+docker compose pull
+
+echo ""
 log_info "Starting Docker Compose stack..."
 
 # Run docker-compose with all arguments passed to this script
