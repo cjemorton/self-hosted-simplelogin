@@ -480,6 +480,143 @@ Or use the provided convenience script which automatically pulls the latest Dock
 
 **Note:** The `up.sh` and `startup.sh` scripts automatically pull the latest version of the custom Docker image (`clem16/simplelogin-app`) before starting the stack. This ensures you always have the most recent testing version.
 
+#### Custom Docker Image and Configuration Path
+
+SimpleLogin supports flexible Docker image and configuration file selection to accommodate different deployment scenarios, testing environments, and custom builds.
+
+##### Docker Image Selection
+
+You can specify the Docker image to use in three ways:
+
+**Option 1: Use the Default Image (Recommended)**
+
+This fork uses `clem16/simplelogin-app:v2026.02.02-staging-test-02` by default. The image is automatically constructed from three variables in `.env`:
+
+```bash
+SL_DOCKER_REPO=clem16
+SL_IMAGE=simplelogin-app
+SL_VERSION=v2026.02.02-staging-test-02
+```
+
+**Option 2: Use a Custom Repository/Image**
+
+You can change the repository, image name, or version individually. For example, to use the official upstream SimpleLogin image:
+
+```bash
+SL_DOCKER_REPO=simplelogin
+SL_IMAGE=app-ci
+SL_VERSION=v4.70.0
+```
+
+> ⚠️ **Note:** Official SimpleLogin images may not be fully compatible with this fork's enhanced features (automatic resource optimization, MTA-STS detection, etc.).
+
+**Option 3: Complete Custom Image Override**
+
+For complete control, use `SL_CUSTOM_IMAGE` to specify the full image path. This overrides all other image settings:
+
+```bash
+# Use a custom registry
+SL_CUSTOM_IMAGE=ghcr.io/myuser/simplelogin-app:custom-v1
+
+# Use a locally built image for testing
+SL_CUSTOM_IMAGE=local/simplelogin-test:dev
+
+# Use a test image from a different registry
+SL_CUSTOM_IMAGE=myregistry.example.com/simplelogin:testing
+```
+
+When `SL_CUSTOM_IMAGE` is set, the values of `SL_DOCKER_REPO`, `SL_IMAGE`, and `SL_VERSION` are ignored.
+
+##### Custom Configuration Path
+
+By default, SimpleLogin uses `.env` as the configuration file. You can override this with `SL_CONFIG_PATH`:
+
+```bash
+# Set in your environment before running startup scripts
+export SL_CONFIG_PATH=.env.production
+./startup.sh
+
+# Or specify directly when starting docker-compose
+SL_CONFIG_PATH=.env.testing docker compose up
+```
+
+**Use Cases:**
+
+- **Multiple Environments:** Maintain separate configs for development, staging, and production
+  ```bash
+  SL_CONFIG_PATH=.env.dev
+  SL_CONFIG_PATH=.env.staging
+  SL_CONFIG_PATH=.env.production
+  ```
+
+- **Testing:** Test configuration changes without modifying your main `.env` file
+  ```bash
+  cp .env .env.test
+  # Edit .env.test...
+  SL_CONFIG_PATH=.env.test docker compose up
+  ```
+
+- **Non-Standard Locations:** Store configuration in a custom directory
+  ```bash
+  SL_CONFIG_PATH=/opt/simplelogin/config/.env
+  ```
+
+##### Backward Compatibility
+
+All existing configurations remain fully compatible:
+
+- If you don't set any new variables, the system uses the defaults (`clem16/simplelogin-app:v2026.02.02-staging-test-02` with `.env` config)
+- The `startup.sh` script validates your configuration and provides helpful error messages
+- Version validation still works for the default fork image to prevent compatibility issues
+
+##### Examples
+
+**Example 1: Default Usage (No Changes Required)**
+
+```bash
+# Your .env file (unchanged)
+SL_VERSION=v2026.02.02-staging-test-02
+# ... other settings
+
+# Start normally
+./startup.sh
+```
+
+**Example 2: Testing with Custom Image**
+
+```bash
+# Add to your .env file
+SL_CUSTOM_IMAGE=myregistry/simplelogin-test:experimental
+# SL_VERSION still required but not used for image selection
+
+# Start normally
+./startup.sh
+```
+
+**Example 3: Separate Production Config**
+
+```bash
+# Create production config
+cp .env .env.production
+# Edit .env.production with production values...
+
+# Start with production config
+export SL_CONFIG_PATH=.env.production
+./startup.sh
+```
+
+**Example 4: Custom Repository and Version**
+
+```bash
+# Modify .env to use different repository
+SL_DOCKER_REPO=mycompany
+SL_IMAGE=simplelogin-custom
+SL_VERSION=v1.0.0
+# Results in image: mycompany/simplelogin-custom:v1.0.0
+
+./startup.sh
+```
+
 You may want to setup [Certificate Authority Authorization (CAA)](#caa) at this point.
 
 ## Troubleshooting

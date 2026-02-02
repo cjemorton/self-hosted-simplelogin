@@ -1,6 +1,19 @@
+## SimpleLogin Service Defaults
+## ==============================
+## This section defines common configuration shared across all SimpleLogin services.
+##
+## Docker Image Selection:
+##   - If SL_CUSTOM_IMAGE is set: uses the custom image directly
+##   - Otherwise: constructs image as ${SL_DOCKER_REPO:-clem16}/${SL_IMAGE:-simplelogin-app}:${SL_VERSION}
+##   - Default: clem16/simplelogin-app:v2026.02.02-staging-test-02
+##
+## Configuration File:
+##   - Uses SL_CONFIG_PATH if set, otherwise defaults to .env
+##   - This allows using different config files for different environments
+##
 x-sl-defaults: &sl-defaults
-  image: clem16/simplelogin-app:$SL_VERSION
-  env_file: .env
+  image: ${SL_CUSTOM_IMAGE:-${SL_DOCKER_REPO:-clem16}/${SL_IMAGE:-simplelogin-app}:${SL_VERSION}}
+  env_file: ${SL_CONFIG_PATH:-.env}
   volumes:
     - ./pgp:/sl/pgp
     - ./upload:/code/static/upload
@@ -15,7 +28,7 @@ services:
   postgres:
     image: postgres:12.1
     container_name: sl-db
-    env_file: .env
+    env_file: ${SL_CONFIG_PATH:-.env}
     healthcheck:
       test: [ "CMD-SHELL", "PGPASSWORD=$$POSTGRES_PASSWORD pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1" ]
       interval: 10s

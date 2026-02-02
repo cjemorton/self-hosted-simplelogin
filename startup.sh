@@ -37,13 +37,23 @@ echo "  SimpleLogin Startup"
 echo "========================================="
 echo ""
 
-# Check if .env exists
-if [ ! -f .env ]; then
-  log_error ".env file not found!"
-  log_info "Please copy .env.example to .env and configure it:"
-  log_info "  cp .env.example .env"
+# Check if custom config path is specified, otherwise use .env
+CONFIG_FILE="${SL_CONFIG_PATH:-.env}"
+
+# Check if config file exists
+if [ ! -f "$CONFIG_FILE" ]; then
+  log_error "Configuration file not found: $CONFIG_FILE"
+  if [ "$CONFIG_FILE" = ".env" ]; then
+    log_info "Please copy .env.example to .env and configure it:"
+    log_info "  cp .env.example .env"
+  else
+    log_info "Please ensure the specified SL_CONFIG_PATH exists:"
+    log_info "  SL_CONFIG_PATH=$CONFIG_FILE"
+  fi
   exit 1
 fi
+
+log_info "Using configuration file: $CONFIG_FILE"
 
 # Load environment variables
 # Use a safer method that skips complex syntax
@@ -67,30 +77,52 @@ while IFS= read -r line || [ -n "$line" ]; do
     # Export the variable
     export "${var_name}=${var_value}"
   fi
-done < .env
+done < "$CONFIG_FILE"
 set +a
 
 # Get expected version from .env.example
 EXPECTED_VERSION=$(grep "^SL_VERSION=" .env.example | cut -d'=' -f2)
 
-# Validate SL_VERSION for custom fork
-if [ -n "$SL_VERSION" ] && [ "$SL_VERSION" != "$EXPECTED_VERSION" ]; then
-  log_error "Incorrect SL_VERSION detected: $SL_VERSION"
-  log_error "This fork uses a custom Docker image: clem16/simplelogin-app:$EXPECTED_VERSION"
-  log_error ""
-  log_error "Please update your .env file:"
-  log_error "  SL_VERSION=$EXPECTED_VERSION"
-  log_error ""
-  log_error "Note: The official SimpleLogin image (simplelogin/app-ci) versions like v4.70.0"
-  log_error "      are not compatible with this fork's custom image (clem16/simplelogin-app)."
-  exit 1
-elif [ -z "$SL_VERSION" ]; then
-  log_error "SL_VERSION is not set in .env file"
-  log_error "Please set: SL_VERSION=$EXPECTED_VERSION"
-  exit 1
+# Determine which Docker image will be used
+if [ -n "$SL_CUSTOM_IMAGE" ]; then
+  # Custom image override is set
+  log_pass "Using custom Docker image: $SL_CUSTOM_IMAGE"
+  log_info "Note: Custom image overrides SL_DOCKER_REPO, SL_IMAGE, and SL_VERSION"
+  log_info "Ensure your custom image is compatible with this SimpleLogin fork"
+else
+  # Construct image from components
+  DOCKER_REPO="${SL_DOCKER_REPO:-clem16}"
+  IMAGE_NAME="${SL_IMAGE:-simplelogin-app}"
+  
+  # Validate SL_VERSION for default fork image
+  if [ "$DOCKER_REPO" = "clem16" ] && [ "$IMAGE_NAME" = "simplelogin-app" ]; then
+    # Using the default fork image - validate version
+    if [ -n "$SL_VERSION" ] && [ "$SL_VERSION" != "$EXPECTED_VERSION" ]; then
+      log_error "Incorrect SL_VERSION detected: $SL_VERSION"
+      log_error "This fork uses a custom Docker image: clem16/simplelogin-app:$EXPECTED_VERSION"
+      log_error ""
+      log_error "Please update your .env file:"
+      log_error "  SL_VERSION=$EXPECTED_VERSION"
+      log_error ""
+      log_error "Note: The official SimpleLogin image (simplelogin/app-ci) versions like v4.70.0"
+      log_error "      are not compatible with this fork's custom image (clem16/simplelogin-app)."
+      exit 1
+    elif [ -z "$SL_VERSION" ]; then
+      log_error "SL_VERSION is not set in .env file"
+      log_error "Please set: SL_VERSION=$EXPECTED_VERSION"
+      exit 1
+    fi
+    log_pass "Using default fork Docker image: $DOCKER_REPO/$IMAGE_NAME:$SL_VERSION"
+  else
+    # Using a custom repo/image combination
+    if [ -z "$SL_VERSION" ]; then
+      log_error "SL_VERSION is required when using custom image repository"
+      exit 1
+    fi
+    log_pass "Using custom Docker image: $DOCKER_REPO/$IMAGE_NAME:$SL_VERSION"
+    log_info "Note: Custom images may not be compatible with this fork's features"
+  fi
 fi
-
-log_pass "Using correct Docker image version: clem16/simplelogin-app:$SL_VERSION"
 echo ""
 
 # Detect MTA-STS configuration
