@@ -4,6 +4,16 @@
 #
 # This script performs pre-startup checks and MTA-STS detection before
 # launching the Docker Compose stack.
+#
+# Docker Image Validation:
+#   This script uses SL_VERSION from .env as the single source of truth for Docker versioning.
+#   Before starting:
+#     1. Checks if the image exists locally (no remote calls if found)
+#     2. If not local, checks the remote Docker registry (Docker Hub)
+#     3. If not found anywhere, prints a clear error with instructions
+#
+#   TODO: Consider automating the build/push process from upstream SimpleLogin images
+#         to simplify version management and reduce manual intervention.
 
 set -euo pipefail
 
@@ -80,47 +90,51 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$CONFIG_FILE"
 set +a
 
-# Get expected version from .env.example
-EXPECTED_VERSION=$(grep "^SL_VERSION=" .env.example | cut -d'=' -f2)
-
-# Determine which Docker image will be used
+# Determine which Docker image will be used (single source of truth: .env)
 if [ -n "$SL_CUSTOM_IMAGE" ]; then
   # Custom image override is set
-  log_pass "Using custom Docker image: $SL_CUSTOM_IMAGE"
+  DOCKER_IMAGE="$SL_CUSTOM_IMAGE"
+  log_pass "Using custom Docker image: $DOCKER_IMAGE"
   log_info "Note: Custom image overrides SL_DOCKER_REPO, SL_IMAGE, and SL_VERSION"
   log_info "Ensure your custom image is compatible with this SimpleLogin fork"
 else
-  # Construct image from components
+  # Construct image from components (use defaults if not set)
   DOCKER_REPO="${SL_DOCKER_REPO:-clem16}"
   IMAGE_NAME="${SL_IMAGE:-simplelogin-app}"
   
-  # Validate SL_VERSION for default fork image
-  if [ "$DOCKER_REPO" = "clem16" ] && [ "$IMAGE_NAME" = "simplelogin-app" ]; then
-    # Using the default fork image - validate version
-    if [ -n "$SL_VERSION" ] && [ "$SL_VERSION" != "$EXPECTED_VERSION" ]; then
-      log_error "Incorrect SL_VERSION detected: $SL_VERSION"
-      log_error "This fork uses a custom Docker image: clem16/simplelogin-app:$EXPECTED_VERSION"
-      log_error ""
-      log_error "Please update your .env file:"
-      log_error "  SL_VERSION=$EXPECTED_VERSION"
-      log_error ""
-      log_error "Note: The official SimpleLogin image (simplelogin/app-ci) versions like v4.70.0"
-      log_error "      are not compatible with this fork's custom image (clem16/simplelogin-app)."
-      exit 1
-    elif [ -z "$SL_VERSION" ]; then
-      log_error "SL_VERSION is not set in .env file"
-      log_error "Please set: SL_VERSION=$EXPECTED_VERSION"
-      exit 1
-    fi
-    log_pass "Using default fork Docker image: $DOCKER_REPO/$IMAGE_NAME:$SL_VERSION"
+  # Validate SL_VERSION is set
+  if [ -z "$SL_VERSION" ]; then
+    log_error "SL_VERSION is not set in .env file"
+    log_error "Please set SL_VERSION to your desired Docker image tag"
+    exit 1
+  fi
+  
+  DOCKER_IMAGE="$DOCKER_REPO/$IMAGE_NAME:$SL_VERSION"
+  log_pass "Using Docker image: $DOCKER_IMAGE"
+fi
+
+# Check if the Docker image exists locally
+log_info "Checking if Docker image exists locally..."
+if docker image inspect "$DOCKER_IMAGE" &> /dev/null; then
+  log_pass "Docker image found locally: $DOCKER_IMAGE"
+else
+  log_warn "Docker image not found locally. Checking remote registry..."
+  
+  # Check if image exists on Docker Hub (or other registry)
+  # Use docker manifest inspect which works without pulling the image
+  if docker manifest inspect "$DOCKER_IMAGE" &> /dev/null; then
+    log_pass "Docker image found on remote registry: $DOCKER_IMAGE"
   else
-    # Using a custom repo/image combination
-    if [ -z "$SL_VERSION" ]; then
-      log_error "SL_VERSION is required when using custom image repository"
-      exit 1
-    fi
-    log_pass "Using custom Docker image: $DOCKER_REPO/$IMAGE_NAME:$SL_VERSION"
-    log_info "Note: Custom images may not be compatible with this fork's features"
+    log_error ""
+    log_error "Docker image not found (locally or remotely): $DOCKER_IMAGE"
+    log_error ""
+    log_error "Please ensure the image exists by either:"
+    log_error "  1. Building and pushing the image to the registry"
+    log_error "  2. Setting an existing image tag in your .env file (SL_VERSION=...)"
+    log_error ""
+    log_error "TODO: Consider automating the build/push process from upstream images"
+    log_error "      See: https://github.com/simple-login/app for upstream source"
+    exit 1
   fi
 fi
 echo ""

@@ -456,6 +456,23 @@ Run SimpleLogin from Docker containers:
     - set the `POSTGRES_PASSWORD` to match the postgres credentials (when starting from scratch, set to a random key).
     - set the `FLASK_SECRET` to an arbitrary secret key.
 
+**Docker Image Versioning:**
+
+The startup scripts (`up.sh` and `startup.sh`) use `SL_VERSION` from `.env` as the **single source of truth** for Docker image versioning. Before starting containers, they automatically:
+
+1. ✅ Check if the Docker image exists **locally** (no remote calls if found - fast startup)
+2. 🌐 If not found locally, check the **remote Docker registry** (Docker Hub)
+3. ❌ If the image doesn't exist anywhere, print a clear error with instructions
+
+This ensures you never accidentally try to pull a non-existent Docker image. The scripts validate image availability before any containers are started.
+
+**Example workflow:**
+- If you set `SL_VERSION=v2026.02.02-staging-test-02` in `.env` and the image exists locally, startup is immediate
+- If the image doesn't exist locally but is available on Docker Hub, it will be pulled automatically
+- If the image doesn't exist at all, you'll get a helpful error message explaining how to build/push it or use an existing version
+
+> **TODO:** Future improvement could automate building and pushing custom images from upstream SimpleLogin releases. For now, ensure the version in `SL_VERSION` corresponds to an existing image.
+
 #### Running the application
 
 **Before starting the stack**, run the pre-flight check to validate your configuration:
@@ -641,16 +658,21 @@ If you see an error like:
 Error response from daemon: manifest for clem16/simplelogin-app:v4.70.0 not found: manifest unknown: manifest unknown
 ```
 
-This means your `.env` file has the wrong `SL_VERSION`. The startup scripts will now detect and prevent this issue automatically.
+This means the Docker image specified in your `.env` file does not exist (locally or on the remote registry). The startup scripts will now detect and prevent this issue automatically.
 
 **Solution:**
 1. Check your `.env` file: `grep SL_VERSION .env`
-2. Update it to the correct version for this fork:
+2. Ensure the SL_VERSION corresponds to an existing Docker image
+3. For this fork, the current image is:
    ```
    SL_VERSION=v2026.02.02-staging-test-02
    ```
-3. The version must match what's in `.env.example`
-4. Run `./up.sh` or `./startup.sh` again - they will validate the version before starting
+4. Run `./up.sh` or `./startup.sh` again - they will:
+   - Check if the image exists locally first (no remote calls if found)
+   - If not local, check the remote Docker registry (Docker Hub)
+   - If not found anywhere, provide clear instructions
+
+**How it works:** The startup scripts now use `SL_VERSION` from `.env` as the single source of truth. They validate image existence before starting containers, ensuring a smooth startup process without pulling non-existent images.
 
 **Why this happens:** This fork uses a custom Docker image (`clem16/simplelogin-app`) instead of the official image (`simplelogin/app-ci`). Official versions like `v4.70.0` do not exist in the custom image repository.
 
