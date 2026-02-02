@@ -38,7 +38,7 @@ services:
       ## load plugin to support static response on "mta-sts" subdomain
       - --experimental.plugins.staticresponse.moduleName=github.com/jdel/staticresponse
       - --experimental.plugins.staticresponse.version=v0.0.1
-    env_file: .env
+    env_file: ${SL_CONFIG_PATH:-.env}
     ports:
       - "80:80"
       - "443:443"
