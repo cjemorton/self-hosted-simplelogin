@@ -1,0 +1,241 @@
+[0;34m[INFO][0m Test session started: 20260202-022415
+[0;34m[INFO][0m Results directory: /home/runner/work/self-hosted-simplelogin/self-hosted-simplelogin/test-results
+[0;34m[INFO][0m Test log: /home/runner/work/self-hosted-simplelogin/self-hosted-simplelogin/test-results/test-20260202-022415.log
+[0;34m[INFO][0m Starting comprehensive RAM scenario testing
+[0;34m[INFO][0m Mode: --docker
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;34m[INFO][0m Testing RAM Configuration: 256MB
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;35m[TEST][0m Testing startup with 256MB RAM
+error while interpolating services.app.labels.[]: required variable DOMAIN is missing a value: DOMAIN_not_set
+[0;31m[ERROR][0m 256MB: startup - TIMEOUT (1 seconds) - Startup exceeded 120s timeout
+
+[0;35m[TEST][0m Testing health check with 256MB RAM
+[0;34m[INFO][0m 256MB: healthcheck - SLOW - Expected response time: 10-30s
+[0;35m[TEST][0m Testing worker lifecycle with 256MB RAM
+[0;34m[INFO][0m 256MB: worker_lifecycle - Workers: 1, Timeout: 120s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROOT CAUSE ANALYSIS: 256MB RAM Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CATEGORY: HIGH RISK - MINIMAL RESOURCES
+
+Root Cause:
+  - RAM marginal (256-512MB range)
+  - Worker timeout caused by:
+    * Slow application initialization
+    * Competing with database for memory
+    * Swap thrashing if enabled
+    * CPU throttling during init
+
+Timeline of Timeout:
+  1. Container starts successfully (~5-10s)
+  2. Gunicorn master process initializes
+  3. Worker fork begins (memory doubles temporarily)
+  4. Heavy imports start (20-40s on slow systems)
+  5. Worker initialization approaches default timeout (30s)
+  6. Timeout occurs before worker ready
+  7. Gunicorn kills worker
+  8. Master retries (exponential backoff)
+
+Prevention Applied:
+  ✅ Single worker only (no concurrent memory usage)
+  ✅ Extended timeout (120s)
+  ✅ Reduced DB pool (3 connections)
+  ✅ Frequent worker recycling (100 requests)
+  ⚠️  Still SLOW but should not timeout
+
+Expected Behavior:
+  - Startup: 60-120 seconds
+  - First request: 15-30 seconds
+  - Subsequent requests: 5-15 seconds
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;34m[INFO][0m Testing RAM Configuration: 512MB
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;35m[TEST][0m Testing startup with 512MB RAM
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+error while interpolating services.app.labels.[]: required variable DOMAIN is missing a value: DOMAIN_not_set
+[0;31m[ERROR][0m 512MB: startup - TIMEOUT (0 seconds) - Startup exceeded 120s timeout
+
+[0;35m[TEST][0m Testing health check with 512MB RAM
+[0;34m[INFO][0m 512MB: healthcheck - SLOW - Expected response time: 10-30s
+[0;35m[TEST][0m Testing worker lifecycle with 512MB RAM
+[0;34m[INFO][0m 512MB: worker_lifecycle - Workers: 1, Timeout: 120s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROOT CAUSE ANALYSIS: 512MB RAM Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CATEGORY: LOW RESOURCES - DEGRADED MODE
+
+Root Cause (if timeouts occur):
+  - Multiple workers competing for limited RAM
+  - Database + app exceed available memory
+  - Request processing triggers additional memory allocation
+  - Timeout during heavy operations (email parsing, database queries)
+
+Timeline:
+  1. Startup succeeds (~10-20s)
+  2. Workers initialize successfully
+  3. Under load: memory pressure builds
+  4. Complex requests take >30s (default timeout)
+  5. Worker timeout triggered
+  6. Worker restart cycle begins
+
+Prevention Applied:
+  ✅ 1-2 workers maximum
+  ✅ 90-second timeout
+  ✅ Small DB pool (5 connections)
+  ✅ Worker recycling (500 requests)
+  ⚠️  Performance degraded but stable
+
+Expected Behavior:
+  - Startup: 20-40 seconds
+  - Simple requests: 2-5 seconds  
+  - Complex requests: 5-15 seconds
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;34m[INFO][0m Testing RAM Configuration: 768MB
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;35m[TEST][0m Testing startup with 768MB RAM
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+error while interpolating services.app.labels.[]: required variable DOMAIN is missing a value: DOMAIN_not_set
+[0;31m[ERROR][0m 768MB: startup - TIMEOUT (0 seconds) - Startup exceeded 120s timeout
+
+[0;35m[TEST][0m Testing health check with 768MB RAM
+[0;34m[INFO][0m 768MB: healthcheck - SUCCESS - Expected response time: 1-5s
+[0;35m[TEST][0m Testing worker lifecycle with 768MB RAM
+[0;34m[INFO][0m 768MB: worker_lifecycle - Workers: 2, Timeout: 90s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROOT CAUSE ANALYSIS: 768MB RAM Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CATEGORY: ADEQUATE RESOURCES - BASIC MODE
+
+Root Cause (if timeouts occur):
+  - Insufficient worker timeout for slow requests
+  - Too many workers for available RAM
+  - Database pool exhaustion
+  - Background job interference
+
+Prevention Applied:
+  ✅ 2-3 workers
+  ✅ 60-second timeout
+  ✅ Moderate DB pool (10 connections)
+  ✅ Standard worker recycling (1000 requests)
+
+Expected Behavior:
+  - Startup: 10-20 seconds
+  - Typical requests: 1-3 seconds
+  - Complex requests: 3-8 seconds
+  - No timeouts under normal load
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;34m[INFO][0m Testing RAM Configuration: 1024MB
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;35m[TEST][0m Testing startup with 1024MB RAM
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+error while interpolating services.app.labels.[]: required variable DOMAIN is missing a value: DOMAIN_not_set
+[0;31m[ERROR][0m 1024MB: startup - TIMEOUT (0 seconds) - Startup exceeded 120s timeout
+
+[0;35m[TEST][0m Testing health check with 1024MB RAM
+[0;34m[INFO][0m 1024MB: healthcheck - SUCCESS - Expected response time: 1-5s
+[0;35m[TEST][0m Testing worker lifecycle with 1024MB RAM
+[0;34m[INFO][0m 1024MB: worker_lifecycle - Workers: 2, Timeout: 60s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROOT CAUSE ANALYSIS: 1024MB RAM Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CATEGORY: GOOD RESOURCES - STANDARD MODE
+
+Root Cause (if timeouts occur):
+  - Application bug or infinite loop
+  - Database query hanging
+  - External service timeout
+  - Not a resource issue
+
+Prevention Applied:
+  ✅ 3-4 workers
+  ✅ 30-60 second timeout
+  ✅ Full DB pool (15 connections)
+  ✅ Standard configuration
+
+Expected Behavior:
+  - Startup: 5-10 seconds
+  - Typical requests: < 1 second
+  - Complex requests: 1-3 seconds
+  - Timeouts only on application errors
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;34m[INFO][0m Testing RAM Configuration: 2048MB
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;35m[TEST][0m Testing startup with 2048MB RAM
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+error while interpolating services.app.labels.[]: required variable DOMAIN is missing a value: DOMAIN_not_set
+[0;31m[ERROR][0m 2048MB: startup - TIMEOUT (0 seconds) - Startup exceeded 120s timeout
+
+[0;35m[TEST][0m Testing health check with 2048MB RAM
+[0;34m[INFO][0m 2048MB: healthcheck - SUCCESS - Expected response time: 1-5s
+[0;35m[TEST][0m Testing worker lifecycle with 2048MB RAM
+[0;34m[INFO][0m 2048MB: worker_lifecycle - Workers: 4, Timeout: 30s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROOT CAUSE ANALYSIS: 2048MB RAM Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CATEGORY: OPTIMAL RESOURCES
+
+Root Cause (if timeouts occur):
+  - Application bug (not resource related)
+  - Database performance issue
+  - External dependency timeout
+
+Configuration:
+  ✅ 4-8 workers (CPU-bound)
+  ✅ 30-second timeout (standard)
+  ✅ Large DB pool (20 connections)
+  ✅ Optimal performance
+
+Expected Behavior:
+  - Startup: < 5 seconds
+  - All requests: < 1 second
+  - No resource-related timeouts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;34m[INFO][0m Testing RAM Configuration: 4096MB
+[0;34m[INFO][0m ═══════════════════════════════════════════════════════════
+[0;35m[TEST][0m Testing startup with 4096MB RAM
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_IMAGE\" variable is not set. Defaulting to a blank string."
+time="2026-02-02T02:24:16Z" level=warning msg="The \"SL_VERSION\" variable is not set. Defaulting to a blank string."

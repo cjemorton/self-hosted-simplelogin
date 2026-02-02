@@ -1,0 +1,17 @@
+RAM_MB,Scenario,Result,Duration,Notes
+256,startup,TIMEOUT,1s,Startup exceeded 120s timeout
+256,healthcheck,SLOW,1s,Expected response time: 10-30s
+256,worker_lifecycle,CONFIGURED,N/A,Workers: 1, Timeout: 120s
+512,startup,TIMEOUT,0s,Startup exceeded 120s timeout
+512,healthcheck,SLOW,1s,Expected response time: 10-30s
+512,worker_lifecycle,CONFIGURED,N/A,Workers: 1, Timeout: 120s
+768,startup,TIMEOUT,0s,Startup exceeded 120s timeout
+768,healthcheck,SUCCESS,1s,Expected response time: 1-5s
+768,worker_lifecycle,CONFIGURED,N/A,Workers: 2, Timeout: 90s
+1024,startup,TIMEOUT,0s,Startup exceeded 120s timeout
+1024,healthcheck,SUCCESS,1s,Expected response time: 1-5s
+1024,worker_lifecycle,CONFIGURED,N/A,Workers: 2, Timeout: 60s
+2048,startup,TIMEOUT,0s,Startup exceeded 120s timeout
+2048,healthcheck,SUCCESS,1s,Expected response time: 1-5s
+2048,worker_lifecycle,CONFIGURED,N/A,Workers: 4, Timeout: 30s
+4096,startup,TIMEOUT,0s,Startup exceeded 120s timeout
