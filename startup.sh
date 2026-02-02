@@ -70,8 +70,10 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < .env
 set +a
 
+# Get expected version from .env.example
+EXPECTED_VERSION=$(grep "^SL_VERSION=" .env.example | cut -d'=' -f2)
+
 # Validate SL_VERSION for custom fork
-EXPECTED_VERSION="v2026.02.02-staging-test-02"
 if [ -n "$SL_VERSION" ] && [ "$SL_VERSION" != "$EXPECTED_VERSION" ]; then
   log_error "Incorrect SL_VERSION detected: $SL_VERSION"
   log_error "This fork uses a custom Docker image: clem16/simplelogin-app:$EXPECTED_VERSION"
