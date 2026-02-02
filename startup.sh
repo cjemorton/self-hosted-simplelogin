@@ -46,8 +46,28 @@ if [ ! -f .env ]; then
 fi
 
 # Load environment variables
+# Use a safer method that skips complex syntax
 set -a
-source .env
+while IFS= read -r line || [ -n "$line" ]; do
+  # Skip comments and empty lines
+  if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
+    continue
+  fi
+  
+  # Only process simple VAR=value lines (no arrays or complex expressions)
+  if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+    var_name="${BASH_REMATCH[1]}"
+    var_value="${BASH_REMATCH[2]}"
+    
+    # Skip lines with array syntax or function calls that bash can't handle
+    if [[ "$var_value" =~ ^\[.*\]$ ]] || [[ "$var_value" =~ \$\( ]]; then
+      continue
+    fi
+    
+    # Export the variable
+    export "${var_name}=${var_value}"
+  fi
+done < .env
 set +a
 
 # Detect MTA-STS configuration
