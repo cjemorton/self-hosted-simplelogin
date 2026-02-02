@@ -382,6 +382,11 @@ Use online tools like [Hardenize](https://www.hardenize.com/) or [MTA-STS Valida
 - **DNS not pointing to CDN**: External hosting won't work if DNS doesn't point to your CDN
   - Solution: Update your `mta-sts.mydomain.com` A record to point to your CDN IP
 
+**Important Note on External Hosting:**
+When using external MTA-STS hosting (`MTA_STS_MODE=external`), the internal Traefik route still exists in the Docker Compose configuration (Docker Compose labels cannot be conditionally removed at runtime). However, this will not cause conflicts as long as your DNS for `mta-sts.mydomain.com` points to your external CDN/host rather than your SimpleLogin server. The internal route will simply never receive traffic.
+
+If you need to test the internal route while external is configured, temporarily update your `/etc/hosts` file to override DNS.
+
 ### TLSRPT
 
 [SMTP TLS Reporting](https://datatracker.ietf.org/doc/html/rfc8460) is used by SMTP systems to report failures in establishing TLS-secure sessions as broadcast by the MTA-STS configuration.

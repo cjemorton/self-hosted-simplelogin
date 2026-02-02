@@ -89,10 +89,12 @@ fi
 # Export MTA-STS configuration for docker-compose
 if [ "${MTA_STS_INTERNAL_ENABLED:-true}" = "false" ]; then
   log_info "MTA-STS: External hosting detected or manually disabled"
-  log_warn "Internal MTA-STS via Traefik will still be configured but may conflict with external hosting"
-  log_info "Ensure your external MTA-STS configuration is correct"
+  log_info "Note: Internal Traefik route will still exist but should not receive traffic"
+  log_info "Ensure mta-sts.${DOMAIN} DNS points to your external host (not this server)"
+  log_info "Verify external MTA-STS configuration is correct and accessible"
 else
   log_info "MTA-STS: Using internal hosting via Traefik"
+  log_info "Ensure mta-sts.${DOMAIN} DNS points to this server"
 fi
 
 # Export variables for docker-compose to use
