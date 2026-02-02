@@ -39,4 +39,8 @@ echo "✓ Using correct Docker image version: clem16/simplelogin-app:$SL_VERSION
 echo "Pulling latest Docker images..."
 docker compose pull
 
+## Build postfix image from local Dockerfile
+echo "Building postfix image from local Dockerfile..."
+docker compose build postfix
+
 docker compose up --remove-orphans --detach $@

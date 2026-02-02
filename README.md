@@ -898,13 +898,9 @@ docker compose \
 
 ### Postfix
 
-The `postfix` container is running a private image that has changed from the previous NGinx-based setup to the current Traefik-based setup.
+The `postfix` container is built locally from the `./postfix` directory. The local Dockerfile ensures you have the latest configuration optimized for the Traefik-based setup.
 
-That image needs to be regenerated. You can remove the previous version using the command:
-
-```sh
-docker rmi private/postfix:latest
-```
+The postfix image is automatically built when you start the stack using `./up.sh` or `./startup.sh`. No additional steps are required.
 
 ### In-place upgrade
 
@@ -945,7 +941,7 @@ The new `.env` file supports specifying parameters for certificate renewal using
 3. Restore the postfix `virtual` and `virtual-regexp` files.
 4. Start the stack using `. ./up.sh`.
 
-This will create the `private/postfix:latest` image and request new certificates from Let’s Encrypt.
+This will build the postfix image from the local Dockerfile and request new certificates from Let's Encrypt.
 
 Once the application is running successfully, you need to restore the database. The easiest way it to copy the backup file in the `db/` folder:
 

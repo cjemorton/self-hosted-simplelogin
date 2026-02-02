@@ -5,9 +5,8 @@ services:
   ## =================
 
   postfix:
-    image: private/postfix:latest
     build:
-      context: ./postfix/
+      context: ./postfix
       dockerfile: Dockerfile
     container_name: postfix
     env_file: ${SL_CONFIG_PATH:-.env}
