@@ -99,7 +99,6 @@ services:
 
   email:
     <<: *sl-defaults
-    command: ["python", "email_handler.py"]
     entrypoint: ["/scripts/resource-optimized-entrypoint.sh", "email", "python", "email_handler.py"]
     container_name: sl-email
     restart: unless-stopped
@@ -115,7 +114,6 @@ services:
 
   job-runner:
     <<: *sl-defaults
-    command: ["python", "job_runner.py"]
     entrypoint: ["/scripts/resource-optimized-entrypoint.sh", "job-runner", "python", "job_runner.py"]
     container_name: sl-job-runner
     restart: unless-stopped
