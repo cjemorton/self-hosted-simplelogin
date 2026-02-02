@@ -411,6 +411,49 @@ check_mta_sts() {
   return 0
 }
 
+# Check Cloudflare DNS credentials for DNS-01 certificate issuance
+check_cloudflare_dns() {
+  log_info ""
+  log_info "Checking DNS-01 certificate configuration..."
+  
+  # Check if Python script exists
+  if [ ! -f "scripts/check-cloudflare-dns.py" ]; then
+    log_warn "Cloudflare DNS check script not found (scripts/check-cloudflare-dns.py)"
+    return 0
+  fi
+  
+  # Check if Python 3 is available
+  if ! command -v python3 &> /dev/null; then
+    log_warn "Python 3 not available - skipping Cloudflare DNS check"
+    return 0
+  fi
+  
+  # Run the Cloudflare DNS pre-flight check
+  # This script will:
+  #   - Check if DNS-01 challenge is configured
+  #   - Check if valid certificates already exist (skip API test if so)
+  #   - Validate Cloudflare credentials if needed
+  #   - Test Cloudflare API connectivity if needed
+  #
+  # The script is silent (exit 0) if:
+  #   - DNS-01 is not configured
+  #   - Cloudflare is not the DNS provider
+  #   - Valid certificates already exist
+  #
+  # The script only performs checks when DNS-01 + Cloudflare is configured
+  # and certificates are missing or expired.
+  
+  if python3 scripts/check-cloudflare-dns.py --env-file "$ENV_FILE" 2>&1; then
+    # Check passed (or was skipped due to not using DNS-01/Cloudflare)
+    return 0
+  else
+    # Check failed - error messages already printed by Python script
+    log_fail "DNS-01 certificate pre-flight check failed"
+    log_info "See error messages above for remediation steps"
+    return 1
+  fi
+}
+
 # Print summary
 print_summary() {
   echo ""
@@ -463,6 +506,7 @@ main() {
   check_disk_space || true
   check_ports || true
   check_mta_sts || true
+  check_cloudflare_dns || true
   
   # Print summary and exit with appropriate code
   if print_summary; then

@@ -1,10 +1,76 @@
-# Worker Timeout Investigation Tools
+# SimpleLogin Scripts and Tools
 
-This directory contains comprehensive tools for investigating, monitoring, and preventing Gunicorn worker timeout issues in SimpleLogin.
+This directory contains comprehensive tools for investigating, monitoring, and preventing issues in SimpleLogin, as well as pre-flight checks for startup validation.
 
 ## Tools Overview
 
-### 1. test-ram-scenarios.sh
+### Pre-flight and Startup Checks
+
+#### check-cloudflare-dns.py
+**Purpose:** Pre-flight validation for DNS-01 certificate issuance with Cloudflare
+
+**What it does:**
+- Validates DNS-01 challenge configuration (LE_CHALLENGE=dns, LE_DNS_PROVIDER=cloudflare)
+- Checks for existing valid certificates (skips API tests if certs are present)
+- Validates Cloudflare API credentials (CF_DNS_API_TOKEN or CF_API_TOKEN)
+- Tests Cloudflare API connectivity
+- Verifies API token has access to the specific domain zone
+- Confirms token has required DNS edit permissions
+
+**Usage:**
+```bash
+# Run with default .env file
+python3 scripts/check-cloudflare-dns.py
+
+# Run with custom env file
+python3 scripts/check-cloudflare-dns.py --env-file /path/to/.env
+
+# Run with custom ACME storage path
+python3 scripts/check-cloudflare-dns.py --acme-storage /path/to/acme-dns.json
+```
+
+**Exit codes:**
+- 0: All checks passed or skipped (not using DNS-01 with Cloudflare)
+- 1: Validation failed (missing credentials, invalid token, or no domain access)
+- 2: Script error or invalid arguments
+
+**When to use:**
+- Automatically runs during startup when DNS-01 + Cloudflare is configured
+- Can be run manually to validate Cloudflare credentials before deployment
+- Included in preflight-check.sh for comprehensive pre-startup validation
+
+**Key features:**
+- Silent operation when DNS-01 is not configured or certificates already exist
+- Clear error messages with remediation instructions
+- Prevents silent failures and Let's Encrypt rate limit exhaustion
+- Optimized to skip API tests when valid certificates are present
+
+---
+
+#### test-dns-preflight.sh
+**Purpose:** Test suite for DNS-01 pre-flight check
+
+**What it does:**
+- Tests various configuration scenarios
+- Validates skip logic (non-DNS, non-Cloudflare)
+- Tests credential validation
+- Tests domain configuration validation
+- Verifies error messages and exit codes
+
+**Usage:**
+```bash
+./scripts/test-dns-preflight.sh
+```
+
+**Output:**
+- Summary of passed/failed tests
+- Exit code 0 if all tests pass, 1 if any fail
+
+---
+
+### Worker Timeout Investigation Tools
+
+#### 1. test-ram-scenarios.sh
 **Purpose:** Systematic testing across different RAM configurations
 
 **What it does:**
@@ -36,7 +102,7 @@ This directory contains comprehensive tools for investigating, monitoring, and p
 
 ---
 
-### 2. instrument-worker-lifecycle.sh
+#### 2. instrument-worker-lifecycle.sh
 **Purpose:** Real-time worker lifecycle monitoring and analysis
 
 **What it does:**
@@ -85,7 +151,7 @@ This directory contains comprehensive tools for investigating, monitoring, and p
 
 ---
 
-### 3. monitor-worker-health.sh
+#### 3. monitor-worker-health.sh
 **Purpose:** Real-time worker health monitoring dashboard
 
 **What it does:**
@@ -166,7 +232,7 @@ Press Ctrl+C to exit
 
 ---
 
-### 4. detect-resources.sh (Existing)
+#### 4. detect-resources.sh (Existing)
 **Purpose:** Automatic resource detection and configuration
 
 **What it does:**
@@ -200,7 +266,7 @@ Press Ctrl+C to exit
 
 ---
 
-### 5. resource-optimized-entrypoint.sh (Existing)
+#### 5. resource-optimized-entrypoint.sh (Existing)
 **Purpose:** Container entrypoint with dynamic resource configuration
 
 **What it does:**

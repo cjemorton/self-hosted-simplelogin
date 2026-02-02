@@ -125,6 +125,25 @@ else
 fi
 echo ""
 
+# Check DNS-01 certificate configuration (Cloudflare)
+# This pre-flight check validates Cloudflare credentials for DNS-01 challenges.
+# It ONLY runs when LE_CHALLENGE=dns and LE_DNS_PROVIDER=cloudflare are set.
+# If valid certificates already exist, it skips the API connectivity test
+# to save time and avoid rate limiting.
+if [ -f scripts/check-cloudflare-dns.py ] && command -v python3 &> /dev/null; then
+  log_info "Running DNS-01 certificate pre-flight check..."
+  
+  if python3 scripts/check-cloudflare-dns.py --env-file "$CONFIG_FILE"; then
+    log_pass "DNS-01 certificate check passed"
+  else
+    log_error "DNS-01 certificate pre-flight check failed"
+    log_error "Cannot proceed with startup - fix the errors above"
+    exit 1
+  fi
+  
+  echo ""
+fi
+
 # Detect MTA-STS configuration
 if [ -f scripts/detect-mta-sts.sh ]; then
   log_info "Detecting MTA-STS configuration..."
