@@ -169,6 +169,203 @@ test_invalid_flag() {
   fi
 }
 
+# Test 7: Verify cleanup flag exists
+test_cleanup_flag_exists() {
+  log_test "Checking if cleanup flag option exists..."
+  
+  if grep -q "CLEANUP_MODE" up.sh; then
+    log_pass "CLEANUP_MODE variable found in up.sh"
+  else
+    log_fail "CLEANUP_MODE variable not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q 'cleanup)' up.sh; then
+    log_pass "Cleanup option parsing found in up.sh"
+  else
+    log_fail "Cleanup option parsing not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q "perform_cleanup" up.sh; then
+    log_pass "perform_cleanup function found in up.sh"
+  else
+    log_fail "perform_cleanup function not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 8: Verify deep cleanup flag exists
+test_deep_cleanup_flag_exists() {
+  log_test "Checking if deep-cleanup flag option exists..."
+  
+  if grep -q "DEEP_CLEANUP" up.sh; then
+    log_pass "DEEP_CLEANUP variable found in up.sh"
+  else
+    log_fail "DEEP_CLEANUP variable not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q 'deep-cleanup)' up.sh; then
+    log_pass "Deep-cleanup option parsing found in up.sh"
+  else
+    log_fail "Deep-cleanup option parsing not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q "docker system prune" up.sh; then
+    log_pass "Deep cleanup docker command found in up.sh"
+  else
+    log_fail "Deep cleanup docker command not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 9: Verify fresh install flag exists
+test_fresh_install_flag_exists() {
+  log_test "Checking if fresh install flag option exists..."
+  
+  if grep -q "FRESH_INSTALL" up.sh; then
+    log_pass "FRESH_INSTALL variable found in up.sh"
+  else
+    log_fail "FRESH_INSTALL variable not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q 'fresh)' up.sh; then
+    log_pass "Fresh option parsing found in up.sh"
+  else
+    log_fail "Fresh option parsing not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q "perform_fresh_install" up.sh; then
+    log_pass "perform_fresh_install function found in up.sh"
+  else
+    log_fail "perform_fresh_install function not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 10: Verify auto-yes flag exists
+test_auto_yes_flag_exists() {
+  log_test "Checking if auto-yes flag option exists..."
+  
+  if grep -q "AUTO_YES" up.sh; then
+    log_pass "AUTO_YES variable found in up.sh"
+  else
+    log_fail "AUTO_YES variable not found in up.sh"
+    return 1
+  fi
+  
+  if grep -q 'yes)' up.sh; then
+    log_pass "Yes option parsing found in up.sh"
+  else
+    log_fail "Yes option parsing not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 11: Verify fresh install has confirmation prompts
+test_fresh_install_has_confirmations() {
+  log_test "Checking if fresh install has confirmation prompts..."
+  
+  # Check for confirmation prompt
+  if grep -q 'read -p.*confirm' up.sh; then
+    log_pass "Confirmation prompt found in up.sh"
+  else
+    log_fail "Confirmation prompt not found in up.sh"
+    return 1
+  fi
+  
+  # Check for AUTO_YES bypass
+  if grep -q 'if.*AUTO_YES.*!= true' up.sh; then
+    log_pass "AUTO_YES bypass logic found in up.sh"
+  else
+    log_fail "AUTO_YES bypass logic not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 12: Verify cleanup warnings exist
+test_cleanup_warnings_exist() {
+  log_test "Checking if cleanup has appropriate warnings..."
+  
+  # Check for deep cleanup warning
+  if grep -q "WARNING.*Deep cleanup" up.sh; then
+    log_pass "Deep cleanup warning found in up.sh"
+  else
+    log_fail "Deep cleanup warning not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 13: Verify fresh install safety - docker compose down
+test_fresh_install_docker_down() {
+  log_test "Checking if fresh install uses docker compose down..."
+  
+  if grep -q "docker compose down" up.sh; then
+    log_pass "docker compose down found in up.sh"
+  else
+    log_fail "docker compose down not found in up.sh"
+    return 1
+  fi
+  
+  # Check for -v flag to remove volumes
+  if grep -q "docker compose down -v" up.sh; then
+    log_pass "docker compose down with volume removal flag found"
+  else
+    log_fail "docker compose down with volume removal flag not found"
+    return 1
+  fi
+}
+
+# Test 14: Verify help output includes new flags
+test_help_includes_new_flags() {
+  log_test "Testing help output includes new flags..."
+  
+  # Run up.sh with -h flag and capture output
+  if output=$(./up.sh -h 2>&1); then
+    if echo "$output" | grep -q "\-c.*cleanup"; then
+      log_pass "Help output documents the -c/cleanup flag"
+    else
+      log_fail "Help output does not document the -c/cleanup flag"
+      return 1
+    fi
+    
+    if echo "$output" | grep -q "deep-cleanup"; then
+      log_pass "Help output documents the --deep-cleanup flag"
+    else
+      log_fail "Help output does not document the --deep-cleanup flag"
+      return 1
+    fi
+    
+    if echo "$output" | grep -q "\-r.*fresh"; then
+      log_pass "Help output documents the -r/fresh flag"
+    else
+      log_fail "Help output does not document the -r/fresh flag"
+      return 1
+    fi
+    
+    if echo "$output" | grep -q "\-y.*yes"; then
+      log_pass "Help output documents the -y/yes flag"
+    else
+      log_fail "Help output does not document the -y/yes flag"
+      return 1
+    fi
+    
+    if echo "$output" | grep -q "WARNING"; then
+      log_pass "Help output includes safety warnings"
+    else
+      log_fail "Help output does not include safety warnings"
+      return 1
+    fi
+  else
+    log_fail "Failed to run up.sh -h"
+    return 1
+  fi
+}
+
 # Main test execution
 main() {
   echo "=========================================="
@@ -195,6 +392,22 @@ main() {
   test_default_detached_mode
   echo ""
   test_invalid_flag
+  echo ""
+  test_cleanup_flag_exists
+  echo ""
+  test_deep_cleanup_flag_exists
+  echo ""
+  test_fresh_install_flag_exists
+  echo ""
+  test_auto_yes_flag_exists
+  echo ""
+  test_fresh_install_has_confirmations
+  echo ""
+  test_cleanup_warnings_exist
+  echo ""
+  test_fresh_install_docker_down
+  echo ""
+  test_help_includes_new_flags
   echo ""
   
   # Summary
