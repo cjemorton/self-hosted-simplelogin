@@ -1,6 +1,51 @@
 #!/usr/bin/env bash
 
 ## use `--remove-orphans` to remove nginx container from previous versions, to free up ports 80/443 for traefik
+##
+## Usage:
+##   ./up.sh       - Start containers in detached mode (background, default)
+##   ./up.sh -f    - Start containers in foreground mode (shows logs on screen)
+##
+## Options:
+##   -f    Run docker compose in foreground mode (no -d flag)
+##   -h    Show this help message
+
+# Parse command line options
+FOREGROUND_MODE=false
+
+show_usage() {
+  echo "Usage: ./up.sh [OPTIONS]"
+  echo ""
+  echo "Start SimpleLogin containers using docker compose"
+  echo ""
+  echo "Options:"
+  echo "  -f    Run docker compose in foreground mode (shows logs on screen)"
+  echo "  -h    Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  ./up.sh       # Start in detached mode (background)"
+  echo "  ./up.sh -f    # Start in foreground mode"
+  exit 0
+}
+
+while getopts "fh" opt; do
+  case $opt in
+    f)
+      FOREGROUND_MODE=true
+      ;;
+    h)
+      show_usage
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      echo "Use -h for help"
+      exit 1
+      ;;
+  esac
+done
+
+# Shift past the parsed options
+shift $((OPTIND-1))
 
 # Check if .env exists and load it to validate SL_VERSION
 if [ ! -f .env ]; then
@@ -43,4 +88,11 @@ docker compose pull
 echo "Building postfix image from local Dockerfile..."
 docker compose build postfix
 
-docker compose up --remove-orphans --detach $@
+# Run docker compose with or without detach flag based on mode
+if [ "$FOREGROUND_MODE" = true ]; then
+  echo "Starting containers in foreground mode..."
+  docker compose up --remove-orphans $@
+else
+  echo "Starting containers in detached mode..."
+  docker compose up --remove-orphans --detach $@
+fi
