@@ -727,6 +727,34 @@ by setting `LE_DNS_PROVIDER`, and provide further details (i.e. credentials/API-
 
 You can find all supported DNS providers and corresponding instructions here: <https://go-acme.github.io/lego/dns/>
 
+#### DNS-01 Pre-flight Check
+
+When using DNS-01 challenges with Cloudflare (`LE_CHALLENGE=dns` and `LE_DNS_PROVIDER=cloudflare`), the startup process includes an automatic pre-flight check that validates your Cloudflare API credentials before attempting certificate issuance.
+
+The pre-flight check performs the following validations:
+1. **Certificate Check**: First checks if valid, non-expired certificates already exist for your domains
+   - If valid certificates exist, skips credential validation to save time and avoid API rate limits
+2. **Credential Validation**: Verifies that Cloudflare API credentials (`CF_DNS_API_TOKEN` or `CF_API_TOKEN`) are present in your `.env` file
+3. **API Connectivity**: Tests Cloudflare API connectivity with a minimal API call
+4. **Domain Zone Access**: Verifies that your API token has access to the specific domain zone configured in your `.env` file
+5. **Permission Check**: Confirms the token has the required DNS edit permissions for your zone
+
+If any validation fails, the startup process will halt with clear error messages and remediation instructions, preventing silent failures and LE rate limit exhaustion.
+
+**To configure Cloudflare for DNS-01 challenges:**
+1. Log in to your Cloudflare dashboard
+2. Go to My Profile > API Tokens
+3. Click "Create Token"
+4. Use the "Edit zone DNS" template
+5. Set permissions: Zone > DNS > Edit
+6. Select the zone(s) for your domain(s)
+7. Copy the token and add to your `.env` file:
+   ```
+   CF_DNS_API_TOKEN=your-token-here
+   ```
+
+For other DNS providers, see: <https://go-acme.github.io/lego/dns/>
+
 ### Postfix configuration - Spamhaus
 
 The Spamhaus Project maintains a reliable list of IP addresses known to be the source of SPAM.
