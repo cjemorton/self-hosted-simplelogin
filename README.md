@@ -6,9 +6,21 @@ This is a self-hosted docker-compose configuration for [SimpleLogin](https://sim
 
 - ✅ **Automatic Resource Optimization** - Detects system RAM/CPU and auto-configures for optimal performance
 - ✅ **Low-Resource Support** - Runs reliably on 512MB-768MB RAM VPS instances
+- ✅ **Zero Worker Timeouts** - Scientifically validated timeout prevention across all RAM configurations
 - ✅ **Graceful Degradation** - Never crashes due to resource constraints, automatically scales down
+- ✅ **Comprehensive Monitoring** - Real-time worker health dashboard and lifecycle instrumentation
 - ✅ **Manual Override Options** - Full control over all configuration parameters
 - ✅ **Production Ready** - Includes Traefik, Postfix, and PostgreSQL with proper health checks
+
+## Documentation
+
+- 📖 **[Setup Guide](README.md)** - This file, complete installation instructions
+- 📊 **[Performance Benchmarks](PERFORMANCE_BENCHMARKS.md)** - Measured performance at each RAM tier
+- 🔬 **[Root Cause Analysis](ROOT_CAUSE_ANALYSIS.md)** - Deep dive into worker timeout mechanisms
+- 🛠️ **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues and solutions
+- 💾 **[Low Resource Guide](LOW_RESOURCE_GUIDE.md)** - Running on minimal VPS instances
+- 🏗️ **[Architecture Diagram](ARCHITECTURE_DIAGRAM.md)** - System architecture and flow
+- ✅ **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)** - What was built and how it works
 
 ## Prerequisites
 

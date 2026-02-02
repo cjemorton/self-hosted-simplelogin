@@ -16,3 +16,7 @@ postfix/conf.d/virtual.lmdb
 postfix/conf.d/virtual-regexp
 
 .idea
+
+# Test results and instrumentation logs
+test-results/
+instrumentation-logs/
