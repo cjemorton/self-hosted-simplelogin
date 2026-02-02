@@ -88,11 +88,19 @@ test_conditional_docker_compose() {
   fi
   
   # Check for foreground mode command (without --detach)
-  if grep -q 'docker compose up --remove-orphans \$@' up.sh && \
-     ! grep -A1 'FOREGROUND_MODE.*true' up.sh | grep -q 'detach'; then
-    log_pass "Foreground mode docker compose command found (without --detach)"
+  # First, verify the foreground mode block exists
+  if grep -q 'docker compose up --remove-orphans \$@' up.sh; then
+    log_pass "Foreground mode docker compose command found"
   else
-    log_fail "Foreground mode docker compose command not properly configured"
+    log_fail "Foreground mode docker compose command not found"
+    return 1
+  fi
+  
+  # Second, verify that the foreground mode line doesn't have --detach
+  if grep 'FOREGROUND_MODE.*true' up.sh -A3 | grep 'docker compose up' | grep -v -q 'detach'; then
+    log_pass "Foreground mode command verified to not use --detach flag"
+  else
+    log_fail "Foreground mode command improperly uses --detach flag"
     return 1
   fi
   
