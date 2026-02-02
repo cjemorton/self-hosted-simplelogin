@@ -70,10 +70,10 @@ if [ ! -f .env ]; then
 fi
 
 # Load configuration from .env
-source <(grep "^SL_VERSION=" .env)
-source <(grep "^SL_DOCKER_REPO=" .env)
-source <(grep "^SL_IMAGE=" .env)
-source <(grep "^SL_CUSTOM_IMAGE=" .env)
+source <(grep "^SL_VERSION=" .env || echo "")
+source <(grep "^SL_DOCKER_REPO=" .env || echo "")
+source <(grep "^SL_IMAGE=" .env || echo "")
+source <(grep "^SL_CUSTOM_IMAGE=" .env || echo "")
 
 # Determine the Docker image to use (single source of truth: .env)
 if [ -n "$SL_CUSTOM_IMAGE" ]; then
