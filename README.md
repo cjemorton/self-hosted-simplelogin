@@ -2,6 +2,8 @@
 
 This is a self-hosted docker-compose configuration for [SimpleLogin](https://simplelogin.io).
 
+> **Note:** This fork uses a testing version of the SimpleLogin app from the upstream fork at [cjemorton/simplelogin-app](https://github.com/cjemorton/simplelogin-app), using Docker image `clem16/simplelogin-app:v2026.02.02-staging-test-02`.
+
 ## Key Features
 
 - ✅ **Automatic Resource Optimization** - Detects system RAM/CPU and auto-configures for optimal performance
