@@ -6,10 +6,10 @@ services:
 
   postfix:
     build:
-      context: ./postfix
+      context: ${PWD:-.}/postfix
       dockerfile: Dockerfile
     container_name: postfix
-    env_file: ${SL_CONFIG_PATH:-.env}
+    env_file: ${SL_CONFIG_PATH:-${PWD:-.}/.env}
     ports:
       - '25:25'
       - '587:587'

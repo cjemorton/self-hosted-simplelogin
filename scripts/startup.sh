@@ -40,12 +40,114 @@ log_error() {
   echo -e "${RED}[ERROR]${NC} $*"
 }
 
+# Function to perform preflight checks for required files and directories
+perform_preflight_checks() {
+  log_info "Performing preflight checks..."
+  local checks_failed=false
+  
+  # Check 1: Verify we're in the repository root (check for key files)
+  if [ ! -f docker-compose.yaml ]; then
+    log_error "docker-compose.yaml not found in current directory!"
+    echo ""
+    echo "You must run this script from the repository root directory."
+    echo "Current directory: $(pwd)"
+    echo ""
+    echo "Please cd to the repository root before running this script:"
+    echo "  cd /opt/simplelogin  # or wherever you cloned the repository"
+    echo "  bash scripts/startup.sh"
+    echo ""
+    checks_failed=true
+  fi
+  
+  # Check 2: .env file handling with smart fallback
+  # Priority: 1) config/.env, 2) root .env, 3) error
+  if [ -f config/.env ]; then
+    log_pass "Found .env file in config/ directory"
+  elif [ -f .env ]; then
+    log_info "Found .env file in root directory"
+    log_info "Creating symlink config/.env -> ../.env for Docker Compose"
+    
+    # Create symlink if it doesn't exist
+    if [ ! -L config/.env ] && [ ! -f config/.env ]; then
+      ln -s ../.env config/.env
+      log_pass "Created symlink: config/.env -> ../.env"
+    fi
+  else
+    log_error "No .env file found!"
+    echo ""
+    echo "The .env file is required for configuration."
+    echo ""
+    echo "Options for creating .env file:"
+    echo "  1. Copy example to root (recommended):"
+    echo "     cp .env.example .env"
+    echo ""
+    echo "  2. Copy example to config/ directory:"
+    echo "     cp .env.example config/.env"
+    echo ""
+    echo "  3. Use minimal example:"
+    echo "     cp .env.minimal.example .env"
+    echo ""
+    echo "After creating .env, edit it and set required values:"
+    echo "  - DOMAIN (your domain name)"
+    echo "  - POSTGRES_USER and POSTGRES_PASSWORD"
+    echo "  - FLASK_SECRET"
+    echo ""
+    checks_failed=true
+  fi
+  
+  # Check 3: postfix directory exists
+  if [ ! -d postfix ]; then
+    log_error "postfix directory not found in the repository root!"
+    echo ""
+    echo "The postfix directory is required for building the mail server."
+    echo "Expected location: ./postfix/"
+    echo ""
+    echo "This directory should contain:"
+    echo "  - Dockerfile"
+    echo "  - docker-entrypoint.sh"
+    echo "  - conf.d/ directory"
+    echo "  - templates/ directory"
+    echo ""
+    echo "If you cloned the repository, this directory should already exist."
+    echo "Please verify your repository clone is complete and not corrupted."
+    echo ""
+    checks_failed=true
+  fi
+  
+  # Check 4: Docker Compose configuration files exist
+  local required_compose_files=(
+    "config/simple-login-compose.yaml"
+    "config/postfix-compose.yaml"
+    "config/traefik-compose.yaml"
+  )
+  
+  for compose_file in "${required_compose_files[@]}"; do
+    if [ ! -f "$compose_file" ]; then
+      log_error "Required compose file not found: $compose_file"
+      checks_failed=true
+    fi
+  done
+  
+  # If any checks failed, exit with error
+  if [ "$checks_failed" = true ]; then
+    echo ""
+    log_error "Preflight checks failed! Please fix the issues above before continuing."
+    exit 1
+  fi
+  
+  log_pass "All preflight checks passed"
+  echo ""
+}
+
 # Print banner
 echo ""
 echo "========================================="
 echo "  SimpleLogin Startup"
 echo "========================================="
 echo ""
+
+# Perform preflight checks before anything else
+perform_preflight_checks
 
 # Check if custom config path is specified, otherwise use .env
 CONFIG_FILE="${SL_CONFIG_PATH:-.env}"

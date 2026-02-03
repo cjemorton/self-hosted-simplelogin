@@ -448,13 +448,28 @@ This includes:
 Run SimpleLogin from Docker containers:
 
 1. Clone this repository in `/opt/simplelogin`
-1. Copy `.env.example` to `.env` and set appropriate values.
 
-    - set the `DOMAIN` variable to your domain.
-    - set the `SUBDOMAIN` variable to your domain. The default value is `app`.
-    - set the `POSTGRES_USER` variable to match the postgres credentials (when starting from scratch, use `simplelogin`).
-    - set the `POSTGRES_PASSWORD` to match the postgres credentials (when starting from scratch, set to a random key).
-    - set the `FLASK_SECRET` to an arbitrary secret key.
+   ```bash
+   cd /opt
+   git clone https://github.com/cjemorton/self-hosted-simplelogin.git simplelogin
+   cd simplelogin
+   ```
+
+2. Copy `.env.example` to `.env` and set appropriate values.
+
+   **⚠️ IMPORTANT:** The `.env` file must be in the **repository root** (`/opt/simplelogin/.env`), NOT in the `config/` directory.
+
+   ```bash
+   cp .env.example .env
+   nano .env  # or use your preferred editor
+   ```
+
+   Required variables to set:
+   - `DOMAIN` - Your domain name (e.g., `mydomain.com`)
+   - `SUBDOMAIN` - Subdomain for the web app (default: `app`)
+   - `POSTGRES_USER` - Database username (e.g., `simplelogin`)
+   - `POSTGRES_PASSWORD` - Database password (use a strong random password)
+   - `FLASK_SECRET` - Flask secret key (use a random string)
 
 **Environment Configuration Files:**
 
@@ -706,6 +721,60 @@ The repository includes several diagnostic scripts to help identify and resolve 
 - **`scripts/run-migration.sh`** - Run database migrations with enhanced error reporting (used internally)
 
 ### Common Issues
+
+**Configuration file not found (.env missing):**
+
+If you see an error like:
+```
+ERROR: .env file not found!
+```
+
+Or:
+```
+env file .../config/.env not found: stat .../config/.env: no such file or directory
+```
+
+**Solution:**
+1. The `.env` file must be in the **repository root**, not in the `config/` directory
+2. Copy the example file:
+   ```bash
+   cd /opt/simplelogin  # or your installation directory
+   cp .env.example .env
+   ```
+3. Edit `.env` and set required values:
+   ```bash
+   nano .env
+   ```
+   - Set `DOMAIN` to your domain name
+   - Set `POSTGRES_USER` and `POSTGRES_PASSWORD`
+   - Set `FLASK_SECRET` to a random string
+4. Run the script again from the repository root
+
+**Why this happens:** The Docker Compose files reference `.env` in the repository root via `${SL_CONFIG_PATH:-.env}`. The default path is `.env` (not `config/.env`).
+
+**Postfix directory not found:**
+
+If you see an error like:
+```
+unable to prepare context: path ".../config/postfix" not found
+```
+
+**Solution:**
+1. Verify you're in the repository root:
+   ```bash
+   pwd  # Should show /opt/simplelogin or your installation directory
+   ls -la postfix/  # Should show Dockerfile and other files
+   ```
+2. If the `postfix/` directory is missing, your repository clone may be incomplete:
+   ```bash
+   git status
+   git pull
+   ```
+3. Always run Docker Compose commands from the repository root
+
+**Why this happens:** The `postfix/` directory must exist in the repository root for building the Postfix Docker image. The build context is set to `./postfix` relative to the repository root.
+
+For more details, see [postfix/README.md](postfix/README.md).
 
 **Docker image not found (manifest unknown):**
 
