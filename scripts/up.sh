@@ -893,15 +893,6 @@ perform_preflight_checks() {
 # Perform preflight checks before anything else
 perform_preflight_checks
 
-# Check if .env exists and load it to validate SL_VERSION
-# (This check is now redundant with preflight checks above, but kept for clarity)
-if [ ! -f .env ]; then
-  echo "ERROR: .env file not found!"
-  echo "Please copy .env.example to .env and configure it:"
-  echo "  cp .env.example .env"
-  exit 1
-fi
-
 # Load configuration from .env
 SL_VERSION=$(get_env_var "SL_VERSION")
 SL_DOCKER_REPO=$(get_env_var "SL_DOCKER_REPO")
