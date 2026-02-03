@@ -9,12 +9,16 @@
 ##   ./up.sh -r    - Fresh install: wipe all data and start from scratch (requires confirmation)
 ##
 ## Options:
-##   -f, --foreground        Run docker compose in foreground mode (no -d flag)
-##   -c, --cleanup           Cleanup dangling/unused Docker images and volumes
-##       --deep-cleanup      Perform deep cleanup (system prune with volumes) - USE WITH CAUTION
-##   -r, --fresh             Fresh install: stop containers, remove volumes, start fresh
-##   -y, --yes               Skip confirmation prompts (for automation)
-##   -h, --help              Show this help message
+##   -f, --foreground            Run docker compose in foreground mode (no -d flag)
+##   -c, --cleanup               Cleanup dangling/unused Docker images and volumes
+##       --deep-cleanup          Perform deep cleanup (system prune with volumes) - USE WITH CAUTION
+##   -r, --fresh                 Fresh install: stop containers, remove volumes, start fresh
+##   -y, --yes                   Skip confirmation prompts (for automation)
+##       --update-latest         Fetch latest version from GitHub and update .env
+##       --no-docker-login-check Skip Docker login verification
+##       --retry-delay SECONDS   Delay between retries (default: 15s)
+##       --max-retries COUNT     Maximum retry attempts (default: 20)
+##   -h, --help                  Show this help message
 ##
 ## Docker Image Validation:
 ##   This script uses SL_VERSION from .env as the single source of truth for Docker versioning.
@@ -22,6 +26,19 @@
 ##     1. Checks if the image exists locally (no remote calls if found)
 ##     2. If not local, checks the remote Docker registry (Docker Hub)
 ##     3. If not found anywhere, prints a clear error with instructions
+##
+## Version Synchronization (--update-latest):
+##   Automatically fetches the latest SimpleLogin release tag from GitHub and updates your .env:
+##     1. Queries GitHub API for latest release tag
+##     2. Validates the tag's Docker image exists in configured registry
+##     3. Retries with configurable delay if image not yet available
+##     4. Falls back to last available tag if retries exhausted
+##     5. Updates SL_VERSION in .env when successful
+##     6. Pulls the Docker image
+##
+##   Environment Variables:
+##     - SL_DOCKER_REPO: Docker repository to check (default: clem16)
+##     - SL_IMAGE: Docker image name (default: simplelogin-app)
 ##
 ##   TODO: Consider automating the build/push process from upstream SimpleLogin images
 ##         to simplify version management and reduce manual intervention.
@@ -32,6 +49,10 @@ CLEANUP_MODE=false
 DEEP_CLEANUP=false
 FRESH_INSTALL=false
 AUTO_YES=false
+UPDATE_LATEST=false
+NO_DOCKER_LOGIN_CHECK=false
+RETRY_DELAY=15
+MAX_RETRIES=20
 
 show_usage() {
   echo "Usage: ./up.sh [OPTIONS]"
@@ -39,24 +60,52 @@ show_usage() {
   echo "Start SimpleLogin containers using docker compose"
   echo ""
   echo "Options:"
-  echo "  -f, --foreground        Run docker compose in foreground mode (shows logs on screen)"
-  echo "  -c, --cleanup           Cleanup dangling/unused Docker images and volumes before starting"
-  echo "      --deep-cleanup      Perform deep cleanup (system prune with volumes) - USE WITH CAUTION"
-  echo "  -r, --fresh             Fresh install: stop containers, remove volumes, start fresh"
-  echo "  -y, --yes               Skip confirmation prompts (for automation)"
-  echo "  -h, --help              Show this help message"
+  echo "  -f, --foreground            Run docker compose in foreground mode (shows logs on screen)"
+  echo "  -c, --cleanup               Cleanup dangling/unused Docker images and volumes before starting"
+  echo "      --deep-cleanup          Perform deep cleanup (system prune with volumes) - USE WITH CAUTION"
+  echo "  -r, --fresh                 Fresh install: stop containers, remove volumes, start fresh"
+  echo "  -y, --yes                   Skip confirmation prompts (for automation)"
+  echo "      --update-latest         Fetch latest version from GitHub and update .env"
+  echo "      --no-docker-login-check Skip Docker login verification before operations"
+  echo "      --retry-delay SECONDS   Delay between retries when checking for Docker images (default: 15s)"
+  echo "      --max-retries COUNT     Maximum retry attempts for Docker image availability (default: 20)"
+  echo "  -h, --help                  Show this help message"
   echo ""
   echo "Docker Image Validation:"
   echo "  This script uses SL_VERSION from .env as the single source of truth."
   echo "  It checks for image existence (local first, then remote) before starting."
   echo ""
+  echo "Version Synchronization (--update-latest):"
+  echo "  Automatically updates to the latest SimpleLogin release:"
+  echo "    1. Fetches latest release tag from GitHub API"
+  echo "    2. Validates Docker image exists in configured registry"
+  echo "    3. Retries with delay if image not yet available (configurable)"
+  echo "    4. Falls back to last available tag if max retries exceeded"
+  echo "    5. Updates SL_VERSION in .env file"
+  echo "    6. Pulls the Docker image"
+  echo ""
+  echo "  Environment Variables:"
+  echo "    - SL_DOCKER_REPO: Docker repository to check (default: clem16)"
+  echo "    - SL_IMAGE: Docker image name (default: simplelogin-app)"
+  echo ""
+  echo "  Retry Behavior:"
+  echo "    Use --retry-delay and --max-retries to customize waiting for new images."
+  echo "    Default: 20 retries × 15s = 5 minutes maximum wait time."
+  echo ""
+  echo "Docker Login Check:"
+  echo "  By default, the script verifies Docker login status before operations."
+  echo "  Use --no-docker-login-check to skip this verification (not recommended)."
+  echo ""
   echo "Examples:"
-  echo "  ./up.sh                 # Start in detached mode (background)"
-  echo "  ./up.sh -f              # Start in foreground mode"
-  echo "  ./up.sh -c              # Cleanup unused Docker resources, then start"
-  echo "  ./up.sh --deep-cleanup  # Deep cleanup (removes ALL unused Docker data)"
-  echo "  ./up.sh -r              # Fresh install (prompts for confirmation)"
-  echo "  ./up.sh -r -y           # Fresh install (no confirmation, for automation)"
+  echo "  ./up.sh                     # Start in detached mode (background)"
+  echo "  ./up.sh -f                  # Start in foreground mode"
+  echo "  ./up.sh -c                  # Cleanup unused Docker resources, then start"
+  echo "  ./up.sh --deep-cleanup      # Deep cleanup (removes ALL unused Docker data)"
+  echo "  ./up.sh -r                  # Fresh install (prompts for confirmation)"
+  echo "  ./up.sh -r -y               # Fresh install (no confirmation, for automation)"
+  echo "  ./up.sh --update-latest     # Update to latest version from GitHub"
+  echo "  ./up.sh --update-latest --retry-delay 30 --max-retries 10"
+  echo "                              # Update with custom retry settings"
   echo ""
   echo "⚠️  WARNING - Fresh Install (-r, --fresh):"
   echo "    This will PERMANENTLY DELETE all data including:"
@@ -109,6 +158,30 @@ while getopts "fcryh-:" opt; do
         yes)
           AUTO_YES=true
           ;;
+        update-latest)
+          UPDATE_LATEST=true
+          ;;
+        no-docker-login-check)
+          NO_DOCKER_LOGIN_CHECK=true
+          ;;
+        retry-delay)
+          RETRY_DELAY="${!OPTIND}"
+          OPTIND=$((OPTIND + 1))
+          # Validate retry-delay is a number
+          if ! [[ "$RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: --retry-delay must be a positive number" >&2
+            exit 1
+          fi
+          ;;
+        max-retries)
+          MAX_RETRIES="${!OPTIND}"
+          OPTIND=$((OPTIND + 1))
+          # Validate max-retries is a number
+          if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: --max-retries must be a positive number" >&2
+            exit 1
+          fi
+          ;;
         help)
           show_usage
           ;;
@@ -129,6 +202,310 @@ done
 
 # Shift past the parsed options
 shift $((OPTIND-1))
+
+# Logging helper functions
+log_info() {
+  echo "[INFO] $*"
+}
+
+log_success() {
+  echo "✓ $*"
+}
+
+log_error() {
+  echo "ERROR: $*" >&2
+}
+
+log_warning() {
+  echo "⚠️  WARNING: $*"
+}
+
+# Function to check Docker login status
+check_docker_login() {
+  log_info "Checking Docker login status..."
+  
+  # Check if docker info includes Username field
+  if docker info 2>/dev/null | grep -q "Username:"; then
+    local username=$(docker info 2>/dev/null | grep "Username:" | awk '{print $2}')
+    log_success "Docker is logged in as: $username"
+    return 0
+  else
+    log_error "Docker is not logged in!"
+    echo ""
+    echo "Please log in to Docker before running this script:"
+    echo "  docker login"
+    echo ""
+    echo "Or use --no-docker-login-check to skip this verification (not recommended)."
+    return 1
+  fi
+}
+
+# Function to fetch latest GitHub release tag
+fetch_latest_github_tag() {
+  local github_repo="$1"
+  log_info "Fetching latest release from GitHub: $github_repo..."
+  
+  # Use GitHub API to get latest release
+  local api_url="https://api.github.com/repos/${github_repo}/releases/latest"
+  local response=$(curl -s -f "$api_url" 2>/dev/null)
+  
+  if [ $? -ne 0 ] || [ -z "$response" ]; then
+    log_error "Failed to fetch latest release from GitHub API"
+    log_info "Trying to fetch latest tag instead..."
+    
+    # Fallback: try to get latest tag
+    api_url="https://api.github.com/repos/${github_repo}/tags"
+    response=$(curl -s -f "$api_url" 2>/dev/null)
+    
+    if [ $? -ne 0 ] || [ -z "$response" ]; then
+      log_error "Failed to fetch tags from GitHub API"
+      return 1
+    fi
+    
+    # Extract first tag name - use more precise pattern to avoid greedy matching
+    # Pattern: match "name": followed by whitespace and quoted string
+    # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
+    # Expected JSON: {"name": "v1.0.0", ...} or {"name":"v1.0.0",...}
+    local tag_name=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  else
+    # Extract tag_name from release - use more precise pattern to avoid greedy matching
+    # Pattern: match "tag_name": followed by whitespace and quoted string
+    # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
+    # Expected JSON: {"tag_name": "v1.0.0", ...} or {"tag_name":"v1.0.0",...}
+    local tag_name=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  fi
+  
+  if [ -z "$tag_name" ]; then
+    log_error "Could not extract tag name from GitHub response"
+    return 1
+  fi
+  
+  echo "$tag_name"
+  return 0
+}
+
+# Function to check if Docker image exists in registry
+check_docker_image_exists() {
+  local image="$1"
+  log_info "Checking if Docker image exists: $image"
+  
+  # Try docker manifest inspect (works without pulling)
+  if docker manifest inspect "$image" &>/dev/null; then
+    log_success "Docker image found: $image"
+    return 0
+  else
+    log_warning "Docker image not found: $image"
+    return 1
+  fi
+}
+
+# Function to get all available tags for a Docker image
+get_available_docker_tags() {
+  local repo="$1"
+  local image_name="$2"
+  log_info "Fetching available tags from Docker registry..."
+  
+  # For Docker Hub, use the registry API
+  # Note: This relies on Docker Hub API returning JSON with consistent formatting
+  # Using grep/sed for JSON parsing to avoid external dependencies (jq)
+  # Expected format: {"results": [{"name": "tag1"}, {"name": "tag2"}, ...]}
+  local api_url="https://registry.hub.docker.com/v2/repositories/${repo}/${image_name}/tags?page_size=100"
+  local response=$(curl -s -f "$api_url" 2>/dev/null)
+  
+  if [ $? -ne 0 ] || [ -z "$response" ]; then
+    log_error "Failed to fetch tags from Docker registry"
+    return 1
+  fi
+  
+  # Extract tag names using more precise pattern to avoid greedy matching
+  # Pattern: match "name": followed by whitespace and quoted string
+  local tags=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/')
+  echo "$tags"
+  return 0
+}
+
+# Function to update .env file with new version
+update_env_version() {
+  local new_version="$1"
+  log_info "Updating .env with new version: $new_version"
+  
+  if [ ! -f .env ]; then
+    log_error ".env file not found!"
+    return 1
+  fi
+  
+  # Check if SL_VERSION exists in .env
+  if ! grep -q "^SL_VERSION=" .env; then
+    log_error "SL_VERSION not found in .env file"
+    return 1
+  fi
+  
+  # Create backup
+  cp .env .env.backup
+  log_info "Created backup: .env.backup"
+  
+  # Update SL_VERSION in .env
+  if sed -i "s/^SL_VERSION=.*/SL_VERSION=${new_version}/" .env; then
+    log_success "Updated SL_VERSION to: $new_version"
+    
+    # Show the change
+    echo "Old version: $(grep '^SL_VERSION=' .env.backup | cut -d'=' -f2)"
+    echo "New version: $(grep '^SL_VERSION=' .env | cut -d'=' -f2)"
+    return 0
+  else
+    log_error "Failed to update .env file"
+    # Restore backup
+    mv .env.backup .env
+    return 1
+  fi
+}
+
+# Function to perform version update from GitHub
+perform_version_update() {
+  echo "=========================================="
+  echo "Version Synchronization - Update Latest"
+  echo "=========================================="
+  echo ""
+  
+  # Load current configuration
+  if [ ! -f .env ]; then
+    log_error ".env file not found!"
+    echo "Please copy .env.example to .env and configure it:"
+    echo "  cp .env.example .env"
+    exit 1
+  fi
+  
+  # Get current version and Docker repo settings
+  local current_version=$(grep "^SL_VERSION=" .env 2>/dev/null | cut -d'=' -f2)
+  local docker_repo=$(grep "^SL_DOCKER_REPO=" .env 2>/dev/null | cut -d'=' -f2)
+  local image_name=$(grep "^SL_IMAGE=" .env 2>/dev/null | cut -d'=' -f2)
+  
+  # Use defaults if not set
+  docker_repo="${docker_repo:-clem16}"
+  image_name="${image_name:-simplelogin-app}"
+  
+  log_info "Current configuration:"
+  echo "  Current version: ${current_version:-<not set>}"
+  echo "  Docker repository: $docker_repo"
+  echo "  Image name: $image_name"
+  echo ""
+  
+  # Fetch latest tag from GitHub
+  # Note: For the fork, we're using simple-login/app as the source of version tags
+  local github_repo="simple-login/app"
+  local latest_tag=$(fetch_latest_github_tag "$github_repo")
+  
+  if [ $? -ne 0 ] || [ -z "$latest_tag" ]; then
+    log_error "Failed to fetch latest version from GitHub"
+    log_info "Network issue or GitHub API unavailable"
+    exit 1
+  fi
+  
+  log_success "Latest GitHub tag: $latest_tag"
+  echo ""
+  
+  # Check if already on latest version
+  if [ "$current_version" = "$latest_tag" ]; then
+    log_info "Already on latest version: $latest_tag"
+    echo "No update needed."
+    return 0
+  fi
+  
+  # Construct Docker image name
+  local docker_image="${docker_repo}/${image_name}:${latest_tag}"
+  
+  # Check if Docker image exists, with retry logic
+  log_info "Checking Docker image availability with retry logic..."
+  echo "  Max retries: $MAX_RETRIES"
+  echo "  Retry delay: ${RETRY_DELAY}s"
+  echo "  Max wait time: $((MAX_RETRIES * RETRY_DELAY))s"
+  echo ""
+  
+  local retry_count=0
+  local image_found=false
+  
+  while [ $retry_count -lt $MAX_RETRIES ]; do
+    if check_docker_image_exists "$docker_image"; then
+      image_found=true
+      break
+    fi
+    
+    retry_count=$((retry_count + 1))
+    if [ $retry_count -lt $MAX_RETRIES ]; then
+      log_info "Retry $retry_count/$MAX_RETRIES - waiting ${RETRY_DELAY}s before next attempt..."
+      sleep "$RETRY_DELAY"
+    fi
+  done
+  
+  echo ""
+  
+  if [ "$image_found" = false ]; then
+    log_warning "Docker image not available after $MAX_RETRIES retries: $docker_image"
+    echo ""
+    echo "Attempting fallback to last available Docker tag..."
+    echo ""
+    
+    # Get available tags from Docker registry
+    local available_tags=$(get_available_docker_tags "$docker_repo" "$image_name")
+    
+    if [ -z "$available_tags" ]; then
+      log_error "Failed to fetch available Docker tags"
+      log_error "Cannot proceed with update"
+      exit 1
+    fi
+    
+    # Find the most recent tag that exists
+    # Limit search to first 10 tags to avoid excessive API calls
+    local fallback_tag=""
+    local check_count=0
+    local max_checks=10
+    
+    log_info "Searching for latest available tag (checking up to $max_checks tags)..."
+    
+    for tag in $available_tags; do
+      if [ $check_count -ge $max_checks ]; then
+        log_warning "Reached maximum tag check limit ($max_checks)"
+        break
+      fi
+      
+      check_count=$((check_count + 1))
+      if check_docker_image_exists "${docker_repo}/${image_name}:${tag}"; then
+        fallback_tag="$tag"
+        break
+      fi
+    done
+    
+    if [ -z "$fallback_tag" ]; then
+      log_error "No available Docker tags found in registry (checked $check_count tags)"
+      log_error "Cannot proceed with update"
+      exit 1
+    fi
+    
+    log_warning "Falling back to available tag: $fallback_tag"
+    latest_tag="$fallback_tag"
+    docker_image="${docker_repo}/${image_name}:${latest_tag}"
+  fi
+  
+  # Update .env file
+  if update_env_version "$latest_tag"; then
+    echo ""
+    log_success "Version update completed successfully!"
+    echo ""
+    
+    # Pull the Docker image
+    log_info "Pulling Docker image: $docker_image"
+    if docker pull "$docker_image"; then
+      log_success "Docker image pulled successfully"
+    else
+      log_error "Failed to pull Docker image"
+      log_warning "You may need to pull the image manually:"
+      echo "  docker pull $docker_image"
+    fi
+  else
+    log_error "Failed to update version"
+    exit 1
+  fi
+}
 
 # Function to perform Docker cleanup
 perform_cleanup() {
@@ -232,6 +609,20 @@ perform_fresh_install() {
   
   # The rest of the script will continue to pull/build images and start containers
 }
+
+# Check Docker login status (unless skipped)
+if [ "$NO_DOCKER_LOGIN_CHECK" != true ]; then
+  if ! check_docker_login; then
+    exit 1
+  fi
+  echo ""
+fi
+
+# Execute version update if requested
+if [ "$UPDATE_LATEST" = true ]; then
+  perform_version_update
+  echo ""
+fi
 
 # Execute cleanup if requested
 if [ "$CLEANUP_MODE" = true ]; then
