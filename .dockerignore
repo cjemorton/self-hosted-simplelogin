@@ -1,0 +1,56 @@
+# Docker ignore file for SimpleLogin
+# Ensures critical runtime files are never excluded from Docker context
+
+# Build artifacts and dependencies
+node_modules/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Development and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in runtime containers)
+*.md
+!README.md
+
+# Test files
+test-results/
+*.test
+*_test.go
+
+# Environment files (contains secrets)
+.env
+.env.*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# CRITICAL: Never ignore the scripts directory
+# The scripts/ directory contains runtime entrypoint scripts that must be
+# available for Docker volume mounts (e.g., traefik-entrypoint.sh)
+!scripts/
+!scripts/**
