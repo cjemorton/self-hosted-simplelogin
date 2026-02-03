@@ -1,12 +1,18 @@
+# Environment and configuration files
 .env
+.env.local
+.env.*.local
 
+# Database and application data
 db/
 pgp/
 upload/
 
+# DKIM keys
 dkim.pub.key
 dkim.key
 
+# Postfix configuration (generated at runtime)
 postfix/conf.d/aliases.lmdb
 postfix/conf.d/main.cf
 postfix/conf.d/pgsql-relay-domains.cf
@@ -15,8 +21,54 @@ postfix/conf.d/virtual
 postfix/conf.d/virtual.lmdb
 postfix/conf.d/virtual-regexp
 
-.idea
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
 
 # Test results and instrumentation logs
 test-results/
 instrumentation-logs/
+coverage/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# Docker volumes and build artifacts
+*.pid
+*.sock
+
+# Git lock files
+*.lock
+!package-lock.json
+!yarn.lock
+!Pipfile.lock
+
