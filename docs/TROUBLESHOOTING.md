@@ -685,7 +685,7 @@ docker compose run --rm migration alembic history --verbose
    ```
 
 2. **Read upgrade notes:**
-   - Check [README.md](README.md) for upgrade instructions
+   - Check [README.md](../README.md) for upgrade instructions
    - Review SimpleLogin's changelog
    - Check for breaking changes
 

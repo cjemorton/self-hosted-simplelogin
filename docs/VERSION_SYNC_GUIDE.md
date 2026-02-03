@@ -336,7 +336,7 @@ ssh production "./up.sh --update-latest"
 
 ## Related Documentation
 
-- [Main README](README.md) - Setup and installation
+- [Main README](../README.md) - Setup and installation
 - [TROUBLESHOOTING](TROUBLESHOOTING.md) - General troubleshooting guide
 - [up.sh help](up.sh) - Run `./up.sh --help` for quick reference
 

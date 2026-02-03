@@ -19,12 +19,12 @@ This is a self-hosted docker-compose configuration for [SimpleLogin](https://sim
 ## Documentation
 
 - 📖 **[Setup Guide](README.md)** - This file, complete installation instructions
-- 📊 **[Performance Benchmarks](PERFORMANCE_BENCHMARKS.md)** - Measured performance at each RAM tier
-- 🔬 **[Root Cause Analysis](ROOT_CAUSE_ANALYSIS.md)** - Deep dive into worker timeout mechanisms
-- 🛠️ **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues and solutions
-- 💾 **[Low Resource Guide](LOW_RESOURCE_GUIDE.md)** - Running on minimal VPS instances
-- 🏗️ **[Architecture Diagram](ARCHITECTURE_DIAGRAM.md)** - System architecture and flow
-- ✅ **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)** - What was built and how it works
+- 📊 **[Performance Benchmarks](docs/PERFORMANCE_BENCHMARKS.md)** - Measured performance at each RAM tier
+- 🔬 **[Root Cause Analysis](docs/ROOT_CAUSE_ANALYSIS.md)** - Deep dive into worker timeout mechanisms
+- 🛠️ **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- 💾 **[Low Resource Guide](docs/LOW_RESOURCE_GUIDE.md)** - Running on minimal VPS instances
+- 🏗️ **[Architecture Diagram](docs/ARCHITECTURE_DIAGRAM.md)** - System architecture and flow
+- ✅ **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - What was built and how it works
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ This is a self-hosted docker-compose configuration for [SimpleLogin](https://sim
 | **Recommended** | 1-2 GB | 1-2 vCPU | ✅ Good performance |
 | **Optimal** | 4+ GB | 2+ vCPU | ✅ Excellent performance |
 
-**For detailed guidance on running SimpleLogin on resource-constrained systems, see [LOW_RESOURCE_GUIDE.md](LOW_RESOURCE_GUIDE.md).**
+**For detailed guidance on running SimpleLogin on resource-constrained systems, see [LOW_RESOURCE_GUIDE.md](docs/LOW_RESOURCE_GUIDE.md).**
 
 - The server needs to have the port 25 (email), 80, 443 (for the webapp), 22 (so you can ssh into it) open.
 
@@ -492,7 +492,7 @@ docker compose up --detach --remove-orphans --build && docker compose logs -f
 Or use the provided convenience script which automatically pulls the latest Docker images:
 
 ```sh
-./up.sh
+scripts/up.sh
 ```
 
 **Note:** The `up.sh` and `startup.sh` scripts automatically pull the latest version of the custom Docker image (`clem16/simplelogin-app`) before starting the stack. This ensures you always have the most recent testing version.
@@ -551,7 +551,7 @@ By default, SimpleLogin uses `.env` as the configuration file. You can override 
 ```bash
 # Set in your environment before running startup scripts
 export SL_CONFIG_PATH=.env.production
-./startup.sh
+scripts/startup.sh
 
 # Or specify directly when starting docker-compose
 SL_CONFIG_PATH=.env.testing docker compose up
@@ -596,7 +596,7 @@ SL_VERSION=v2026.02.02-staging-test-02
 # ... other settings
 
 # Start normally
-./startup.sh
+scripts/startup.sh
 ```
 
 **Example 2: Testing with Custom Image**
@@ -607,7 +607,7 @@ SL_CUSTOM_IMAGE=myregistry/simplelogin-test:experimental
 # SL_VERSION still required but not used for image selection
 
 # Start normally
-./startup.sh
+scripts/startup.sh
 ```
 
 **Example 3: Separate Production Config**
@@ -619,7 +619,7 @@ cp .env .env.production
 
 # Start with production config
 export SL_CONFIG_PATH=.env.production
-./startup.sh
+scripts/startup.sh
 ```
 
 **Example 4: Custom Repository and Version**
@@ -631,14 +631,14 @@ SL_IMAGE=simplelogin-custom
 SL_VERSION=v1.0.0
 # Results in image: mycompany/simplelogin-custom:v1.0.0
 
-./startup.sh
+scripts/startup.sh
 ```
 
 You may want to setup [Certificate Authority Authorization (CAA)](#caa) at this point.
 
 ## Troubleshooting
 
-If you experience any issues during setup or operation, please refer to the comprehensive [TROUBLESHOOTING.md](TROUBLESHOOTING.md) guide.
+If you experience any issues during setup or operation, please refer to the comprehensive [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) guide.
 
 ### Quick Diagnostic Tools
 
@@ -667,7 +667,7 @@ This means the Docker image specified in your `.env` file does not exist (locall
    ```
    SL_VERSION=v2026.02.02-staging-test-02
    ```
-4. Run `./up.sh` or `./startup.sh` again - they will:
+4. Run `scripts/up.sh` or `scripts/startup.sh` again - they will:
    - Check if the image exists locally first (no remote calls if found)
    - If not local, check the remote Docker registry (Docker Hub)
    - If not found anywhere, provide clear instructions
@@ -766,7 +766,7 @@ LE_DNS_PROVIDER=cloudflare
 CF_DNS_API_TOKEN=your-cloudflare-api-token
 ```
 
-See [TRAEFIK_ACME_TROUBLESHOOTING.md](TRAEFIK_ACME_TROUBLESHOOTING.md) for detailed configuration and troubleshooting.
+See [TRAEFIK_ACME_TROUBLESHOOTING.md](docs/TRAEFIK_ACME_TROUBLESHOOTING.md) for detailed configuration and troubleshooting.
 
 You can find all supported DNS providers here: <https://go-acme.github.io/lego/dns/>
 
@@ -952,7 +952,7 @@ docker compose \
 
 The `postfix` container is built locally from the `./postfix` directory. The local Dockerfile ensures you have the latest configuration optimized for the Traefik-based setup.
 
-The postfix image is automatically built when you start the stack using `./up.sh` or `./startup.sh`. No additional steps are required.
+The postfix image is automatically built when you start the stack using `scripts/up.sh` or `scripts/startup.sh`. No additional steps are required.
 
 ### In-place upgrade
 
@@ -964,13 +964,13 @@ This is the easiest upgrade path as you only need to change the docker-compose a
 
 **Note**: This fork uses the custom Docker image `clem16/simplelogin-app:v2026.02.02-staging-test-02`. If you're migrating from the official SimpleLogin, you'll need to update your `.env` file to use the correct version (see `.env.example`).
 
-1. Stop the stack using `. ./down.sh`.
+1. Stop the stack using `scripts/down.sh`.
 1. Upgrade to the latest version of the files.
 1. Create and update the `.env` file from `.env.example`.
 
 The new `.env` file supports specifying parameters for certificate renewal using either the `DNS-01` or `TLS–ALPN-01` ACME challenge from Let’sEncrypt using [LEGO](https://go-acme.github.io/lego/dns/) , a Let’sEncrypt client library written in Go. Please, review the LEGO documentation for supported providers and their parameters.
 
-4. Start the stack using `. ./up.sh`.
+4. Start the stack using `scripts/up.sh`.
 
 You can now cleanup the folders that are no longer useful:
 
@@ -991,7 +991,7 @@ The new `.env` file supports specifying parameters for certificate renewal using
 3. Restore the `pgp/` and `upload/` folders.
 3. Restore the `dkim.pub.key` and `dkim.key` files.
 3. Restore the postfix `virtual` and `virtual-regexp` files.
-4. Start the stack using `. ./up.sh`.
+4. Start the stack using `scripts/up.sh`.
 
 This will build the postfix image from the local Dockerfile and request new certificates from Let's Encrypt.
 
