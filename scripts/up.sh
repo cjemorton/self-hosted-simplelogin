@@ -39,6 +39,8 @@
 ##   Environment Variables:
 ##     - SL_DOCKER_REPO: Docker repository to check (default: clem16)
 ##     - SL_IMAGE: Docker image name (default: simplelogin-app)
+##     - SL_GITHUB_REPO_USER: GitHub user/org for version tags (default: simple-login)
+##     - SL_GITHUB_REPO_PROJECT: GitHub project for version tags (default: app)
 ##
 ##   TODO: Consider automating the build/push process from upstream SimpleLogin images
 ##         to simplify version management and reduce manual intervention.
@@ -87,6 +89,8 @@ show_usage() {
   echo "  Environment Variables:"
   echo "    - SL_DOCKER_REPO: Docker repository to check (default: clem16)"
   echo "    - SL_IMAGE: Docker image name (default: simplelogin-app)"
+  echo "    - SL_GITHUB_REPO_USER: GitHub user/org for version tags (default: simple-login)"
+  echo "    - SL_GITHUB_REPO_PROJECT: GitHub project for version tags (default: app)"
   echo ""
   echo "  Retry Behavior:"
   echo "    Use --retry-delay and --max-retries to customize waiting for new images."
@@ -391,8 +395,15 @@ perform_version_update() {
   echo ""
   
   # Fetch latest tag from GitHub
-  # Note: For the fork, we're using simple-login/app as the source of version tags
-  local github_repo="simple-login/app"
+  # Use configurable GitHub repo (defaults to upstream simple-login/app)
+  local github_repo_user=$(grep "^SL_GITHUB_REPO_USER=" .env 2>/dev/null | cut -d'=' -f2)
+  local github_repo_project=$(grep "^SL_GITHUB_REPO_PROJECT=" .env 2>/dev/null | cut -d'=' -f2)
+  
+  # Use defaults if not set (upstream SimpleLogin repository)
+  github_repo_user="${github_repo_user:-simple-login}"
+  github_repo_project="${github_repo_project:-app}"
+  
+  local github_repo="${github_repo_user}/${github_repo_project}"
   local latest_tag=$(fetch_latest_github_tag "$github_repo")
   
   if [ $? -ne 0 ] || [ -z "$latest_tag" ]; then

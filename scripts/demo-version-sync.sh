@@ -51,9 +51,19 @@ docker info 2>/dev/null | grep 'Username:' || echo 'Not logged in'
 
 echo ""
 demo_section "4. GitHub API Integration"
-echo -e "${BLUE}Fetching latest SimpleLogin release:${NC}"
-demo_command "curl -s 'https://api.github.com/repos/simple-login/app/releases/latest' | grep 'tag_name'"
-curl -s "https://api.github.com/repos/simple-login/app/releases/latest" | grep '"tag_name":' | head -1
+echo -e "${BLUE}Fetching latest SimpleLogin release (using configured repo):${NC}"
+
+# Read GitHub repo configuration from .env
+GITHUB_USER=$(grep '^SL_GITHUB_REPO_USER=' .env 2>/dev/null | cut -d'=' -f2)
+GITHUB_PROJECT=$(grep '^SL_GITHUB_REPO_PROJECT=' .env 2>/dev/null | cut -d'=' -f2)
+
+# Use defaults if not set
+GITHUB_USER="${GITHUB_USER:-simple-login}"
+GITHUB_PROJECT="${GITHUB_PROJECT:-app}"
+
+echo -e "${BLUE}GitHub repository: ${GITHUB_USER}/${GITHUB_PROJECT}${NC}"
+demo_command "curl -s 'https://api.github.com/repos/${GITHUB_USER}/${GITHUB_PROJECT}/releases/latest' | grep 'tag_name'"
+curl -s "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_PROJECT}/releases/latest" | grep '"tag_name":' | head -1
 
 echo ""
 demo_section "5. Available Flags and Options"
@@ -73,6 +83,14 @@ grep '^SL_DOCKER_REPO=' .env 2>/dev/null || echo "SL_DOCKER_REPO not found"
 echo -e "${BLUE}Image name configuration:${NC}"
 demo_command "grep '^SL_IMAGE=' .env"
 grep '^SL_IMAGE=' .env 2>/dev/null || echo "SL_IMAGE not found"
+
+echo -e "${BLUE}GitHub repository user configuration:${NC}"
+demo_command "grep '^SL_GITHUB_REPO_USER=' .env"
+grep '^SL_GITHUB_REPO_USER=' .env 2>/dev/null || echo "SL_GITHUB_REPO_USER not found (will use default: simple-login)"
+
+echo -e "${BLUE}GitHub repository project configuration:${NC}"
+demo_command "grep '^SL_GITHUB_REPO_PROJECT=' .env"
+grep '^SL_GITHUB_REPO_PROJECT=' .env 2>/dev/null || echo "SL_GITHUB_REPO_PROJECT not found (will use default: app)"
 
 echo ""
 demo_section "7. Feature Summary"
