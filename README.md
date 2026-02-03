@@ -756,6 +756,16 @@ Traefik supports two types of ACME challenges for Let's Encrypt certificates:
    - ❌ Requires DNS provider API configuration
    - ❌ Slightly slower certificate issuance
 
+**How It Works:**
+
+The Traefik container uses a custom entrypoint script (`scripts/traefik-entrypoint.sh`) that is mounted from the host system. This script reads the `LE_CHALLENGE` environment variable and dynamically configures Traefik to use *only* the appropriate ACME challenge type (either DNS or TLS-ALPN, never both). This approach:
+- ✅ Requires no custom Traefik Docker images - uses the upstream container as-is
+- ✅ Keeps all configuration logic in this repository for easy maintenance
+- ✅ Ensures only one certificate resolver is active at a time
+- ✅ Provides clear startup logs showing which challenge type is configured
+
+The script is mounted read-only via the volume `./scripts:/scripts:ro` and set as the container's entrypoint in `traefik-compose.yaml`.
+
 To request a wildcard certificate, edit `.env` file to set `LE_CHALLENGE=dns`, identify your DNS provider
 by setting `LE_DNS_PROVIDER`, and provide credentials (API key/token) for your DNS provider.
 
