@@ -3,10 +3,11 @@
 ## use `--remove-orphans` to remove nginx container from previous versions, to free up ports 80/443 for traefik
 ##
 ## Usage:
-##   ./up.sh       - Start containers in detached mode (background, default)
-##   ./up.sh -f    - Start containers in foreground mode (shows logs on screen)
-##   ./up.sh -c    - Cleanup dangling/unused Docker images and volumes before starting
-##   ./up.sh -r    - Fresh install: wipe all data and start from scratch (requires confirmation)
+##   ./up.sh              - Start containers in detached mode (background, default)
+##   ./up.sh -f           - Start containers in foreground mode (shows logs on screen)
+##   ./up.sh -c           - Cleanup dangling/unused Docker images and volumes before starting
+##   ./up.sh -r           - Fresh install: wipe all data and start from scratch (requires confirmation)
+##   ./up.sh TAG_VERSION  - Use specified tag version (e.g., ./up.sh v1.0.0)
 ##
 ## Options:
 ##   -f, --foreground            Run docker compose in foreground mode (no -d flag)
@@ -14,7 +15,8 @@
 ##       --deep-cleanup          Perform deep cleanup (system prune with volumes) - USE WITH CAUTION
 ##   -r, --fresh                 Fresh install: stop containers, remove volumes, start fresh
 ##   -y, --yes                   Skip confirmation prompts (for automation)
-##       --update-latest         Fetch latest version from GitHub and update .env
+##       --update-latest         Fetch latest tag from GitHub and update .env
+##       --update-tag TAG        Update to specific tag version and update .env
 ##       --no-docker-login-check Skip Docker login verification
 ##       --retry-delay SECONDS   Delay between retries (default: 15s)
 ##       --max-retries COUNT     Maximum retry attempts (default: 20)
@@ -27,12 +29,12 @@
 ##     2. If not local, checks the remote Docker registry (Docker Hub)
 ##     3. If not found anywhere, prints a clear error with instructions
 ##
-## Version Synchronization (--update-latest):
-##   Automatically fetches the latest SimpleLogin release tag from GitHub and updates your .env:
-##     1. Queries GitHub API for latest release tag
+## Version Synchronization (--update-latest or --update-tag):
+##   Automatically fetches tags from GitHub and updates your .env:
+##     1. Queries GitHub API for tags (latest tag or specified tag)
 ##     2. Validates the tag's Docker image exists in configured registry
 ##     3. Retries with configurable delay if image not yet available
-##     4. Falls back to last available tag if retries exhausted
+##     4. Falls back to last available tag if retries exhausted (for --update-latest only)
 ##     5. Updates SL_VERSION in .env when successful
 ##     6. Pulls the Docker image
 ##
@@ -52,6 +54,7 @@ DEEP_CLEANUP=false
 FRESH_INSTALL=false
 AUTO_YES=false
 UPDATE_LATEST=false
+UPDATE_TAG=""
 NO_DOCKER_LOGIN_CHECK=false
 RETRY_DELAY=15
 MAX_RETRIES=20
@@ -67,7 +70,8 @@ show_usage() {
   echo "      --deep-cleanup          Perform deep cleanup (system prune with volumes) - USE WITH CAUTION"
   echo "  -r, --fresh                 Fresh install: stop containers, remove volumes, start fresh"
   echo "  -y, --yes                   Skip confirmation prompts (for automation)"
-  echo "      --update-latest         Fetch latest version from GitHub and update .env"
+  echo "      --update-latest         Fetch latest tag from GitHub and update .env"
+  echo "      --update-tag TAG        Update to specific tag version and update .env"
   echo "      --no-docker-login-check Skip Docker login verification before operations"
   echo "      --retry-delay SECONDS   Delay between retries when checking for Docker images (default: 15s)"
   echo "      --max-retries COUNT     Maximum retry attempts for Docker image availability (default: 20)"
@@ -77,12 +81,12 @@ show_usage() {
   echo "  This script uses SL_VERSION from .env as the single source of truth."
   echo "  It checks for image existence (local first, then remote) before starting."
   echo ""
-  echo "Version Synchronization (--update-latest):"
-  echo "  Automatically updates to the latest SimpleLogin release:"
-  echo "    1. Fetches latest release tag from GitHub API"
+  echo "Version Synchronization (--update-latest, --update-tag):"
+  echo "  Automatically updates to a SimpleLogin tag:"
+  echo "    1. Fetches tag from GitHub API (latest or specified)"
   echo "    2. Validates Docker image exists in configured registry"
   echo "    3. Retries with delay if image not yet available (configurable)"
-  echo "    4. Falls back to last available tag if max retries exceeded"
+  echo "    4. Falls back to last available tag if max retries exceeded (--update-latest only)"
   echo "    5. Updates SL_VERSION in .env file"
   echo "    6. Pulls the Docker image"
   echo ""
@@ -107,7 +111,8 @@ show_usage() {
   echo "  ./up.sh --deep-cleanup      # Deep cleanup (removes ALL unused Docker data)"
   echo "  ./up.sh -r                  # Fresh install (prompts for confirmation)"
   echo "  ./up.sh -r -y               # Fresh install (no confirmation, for automation)"
-  echo "  ./up.sh --update-latest     # Update to latest version from GitHub"
+  echo "  ./up.sh --update-latest     # Update to latest tag from GitHub"
+  echo "  ./up.sh --update-tag v1.0.0 # Update to specific tag v1.0.0"
   echo "  ./up.sh --update-latest --retry-delay 30 --max-retries 10"
   echo "                              # Update with custom retry settings"
   echo ""
@@ -164,6 +169,15 @@ while getopts "fcryh-:" opt; do
           ;;
         update-latest)
           UPDATE_LATEST=true
+          ;;
+        update-tag)
+          UPDATE_TAG="${!OPTIND}"
+          OPTIND=$((OPTIND + 1))
+          # Validate update-tag has a value
+          if [ -z "$UPDATE_TAG" ]; then
+            echo "ERROR: --update-tag requires a tag value" >&2
+            exit 1
+          fi
           ;;
         no-docker-login-check)
           NO_DOCKER_LOGIN_CHECK=true
@@ -244,39 +258,66 @@ check_docker_login() {
   fi
 }
 
-# Function to fetch latest GitHub release tag
+# Function to fetch latest GitHub tag (or specific tag)
 fetch_latest_github_tag() {
   local github_repo="$1"
-  log_info "Fetching latest release from GitHub: $github_repo..."
+  local specific_tag="${2:-}"
   
-  # Use GitHub API to get latest release
-  local api_url="https://api.github.com/repos/${github_repo}/releases/latest"
-  local response=$(curl -s -f "$api_url" 2>/dev/null)
-  
-  if [ $? -ne 0 ] || [ -z "$response" ]; then
-    log_error "Failed to fetch latest release from GitHub API"
-    log_info "Trying to fetch latest tag instead..."
+  if [ -n "$specific_tag" ]; then
+    log_info "Verifying tag '$specific_tag' exists on GitHub: $github_repo..."
     
-    # Fallback: try to get latest tag
-    api_url="https://api.github.com/repos/${github_repo}/tags"
-    response=$(curl -s -f "$api_url" 2>/dev/null)
+    # Check if specific tag exists
+    local api_url="https://api.github.com/repos/${github_repo}/tags"
+    local response=$(curl -s -f "$api_url" 2>/dev/null)
     
     if [ $? -ne 0 ] || [ -z "$response" ]; then
       log_error "Failed to fetch tags from GitHub API"
       return 1
     fi
     
-    # Extract first tag name - use more precise pattern to avoid greedy matching
-    # Pattern: match "name": followed by whitespace and quoted string
-    # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
-    # Expected JSON: {"name": "v1.0.0", ...} or {"name":"v1.0.0",...}
-    local tag_name=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
-  else
+    # Check if the specific tag exists in the response
+    if echo "$response" | grep -q "\"name\"[[:space:]]*:[[:space:]]*\"${specific_tag}\""; then
+      log_success "Tag '$specific_tag' found on GitHub"
+      echo "$specific_tag"
+      return 0
+    else
+      log_error "Tag '$specific_tag' not found on GitHub"
+      log_info "Available tags can be viewed at: https://github.com/${github_repo}/tags"
+      return 1
+    fi
+  fi
+  
+  # Fetch latest tag
+  log_info "Fetching latest tag from GitHub: $github_repo..."
+  
+  # Use GitHub API to get tags (primary method)
+  local api_url="https://api.github.com/repos/${github_repo}/tags"
+  local response=$(curl -s -f "$api_url" 2>/dev/null)
+  
+  if [ $? -ne 0 ] || [ -z "$response" ]; then
+    log_error "Failed to fetch tags from GitHub API"
+    log_info "Trying to fetch latest release as fallback..."
+    
+    # Fallback: try to get latest release
+    api_url="https://api.github.com/repos/${github_repo}/releases/latest"
+    response=$(curl -s -f "$api_url" 2>/dev/null)
+    
+    if [ $? -ne 0 ] || [ -z "$response" ]; then
+      log_error "Failed to fetch releases from GitHub API"
+      return 1
+    fi
+    
     # Extract tag_name from release - use more precise pattern to avoid greedy matching
     # Pattern: match "tag_name": followed by whitespace and quoted string
     # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
     # Expected JSON: {"tag_name": "v1.0.0", ...} or {"tag_name":"v1.0.0",...}
     local tag_name=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  else
+    # Extract first tag name - use more precise pattern to avoid greedy matching
+    # Pattern: match "name": followed by whitespace and quoted string
+    # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
+    # Expected JSON: {"name": "v1.0.0", ...} or {"name":"v1.0.0",...}
+    local tag_name=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   fi
   
   if [ -z "$tag_name" ]; then
@@ -366,8 +407,14 @@ update_env_version() {
 
 # Function to perform version update from GitHub
 perform_version_update() {
+  local specified_tag="${1:-}"
+  
   echo "=========================================="
-  echo "Version Synchronization - Update Latest"
+  if [ -n "$specified_tag" ]; then
+    echo "Version Synchronization - Update to Tag: $specified_tag"
+  else
+    echo "Version Synchronization - Update Latest"
+  fi
   echo "=========================================="
   echo ""
   
@@ -394,7 +441,7 @@ perform_version_update() {
   echo "  Image name: $image_name"
   echo ""
   
-  # Fetch latest tag from GitHub
+  # Fetch tag from GitHub
   # Use configurable GitHub repo (defaults to upstream simple-login/app)
   local github_repo_user=$(grep "^SL_GITHUB_REPO_USER=" .env 2>/dev/null | cut -d'=' -f2)
   local github_repo_project=$(grep "^SL_GITHUB_REPO_PROJECT=" .env 2>/dev/null | cut -d'=' -f2)
@@ -404,26 +451,34 @@ perform_version_update() {
   github_repo_project="${github_repo_project:-app}"
   
   local github_repo="${github_repo_user}/${github_repo_project}"
-  local latest_tag=$(fetch_latest_github_tag "$github_repo")
+  local target_tag
   
-  if [ $? -ne 0 ] || [ -z "$latest_tag" ]; then
-    log_error "Failed to fetch latest version from GitHub"
+  if [ -n "$specified_tag" ]; then
+    # Verify specified tag exists
+    target_tag=$(fetch_latest_github_tag "$github_repo" "$specified_tag")
+  else
+    # Fetch latest tag
+    target_tag=$(fetch_latest_github_tag "$github_repo")
+  fi
+  
+  if [ $? -ne 0 ] || [ -z "$target_tag" ]; then
+    log_error "Failed to fetch tag from GitHub"
     log_info "Network issue or GitHub API unavailable"
     exit 1
   fi
   
-  log_success "Latest GitHub tag: $latest_tag"
+  log_success "Target GitHub tag: $target_tag"
   echo ""
   
-  # Check if already on latest version
-  if [ "$current_version" = "$latest_tag" ]; then
-    log_info "Already on latest version: $latest_tag"
+  # Check if already on target version
+  if [ "$current_version" = "$target_tag" ]; then
+    log_info "Already on target version: $target_tag"
     echo "No update needed."
     return 0
   fi
   
   # Construct Docker image name
-  local docker_image="${docker_repo}/${image_name}:${latest_tag}"
+  local docker_image="${docker_repo}/${image_name}:${target_tag}"
   
   # Check if Docker image exists, with retry logic
   log_info "Checking Docker image availability with retry logic..."
@@ -452,53 +507,61 @@ perform_version_update() {
   
   if [ "$image_found" = false ]; then
     log_warning "Docker image not available after $MAX_RETRIES retries: $docker_image"
-    echo ""
-    echo "Attempting fallback to last available Docker tag..."
-    echo ""
     
-    # Get available tags from Docker registry
-    local available_tags=$(get_available_docker_tags "$docker_repo" "$image_name")
-    
-    if [ -z "$available_tags" ]; then
-      log_error "Failed to fetch available Docker tags"
-      log_error "Cannot proceed with update"
-      exit 1
-    fi
-    
-    # Find the most recent tag that exists
-    # Limit search to first 10 tags to avoid excessive API calls
-    local fallback_tag=""
-    local check_count=0
-    local max_checks=10
-    
-    log_info "Searching for latest available tag (checking up to $max_checks tags)..."
-    
-    for tag in $available_tags; do
-      if [ $check_count -ge $max_checks ]; then
-        log_warning "Reached maximum tag check limit ($max_checks)"
-        break
+    # Only attempt fallback for --update-latest, not for --update-tag
+    if [ -z "$specified_tag" ]; then
+      echo ""
+      echo "Attempting fallback to last available Docker tag..."
+      echo ""
+      
+      # Get available tags from Docker registry
+      local available_tags=$(get_available_docker_tags "$docker_repo" "$image_name")
+      
+      if [ -z "$available_tags" ]; then
+        log_error "Failed to fetch available Docker tags"
+        log_error "Cannot proceed with update"
+        exit 1
       fi
       
-      check_count=$((check_count + 1))
-      if check_docker_image_exists "${docker_repo}/${image_name}:${tag}"; then
-        fallback_tag="$tag"
-        break
+      # Find the most recent tag that exists
+      # Limit search to first 10 tags to avoid excessive API calls
+      local fallback_tag=""
+      local check_count=0
+      local max_checks=10
+      
+      log_info "Searching for latest available tag (checking up to $max_checks tags)..."
+      
+      for tag in $available_tags; do
+        if [ $check_count -ge $max_checks ]; then
+          log_warning "Reached maximum tag check limit ($max_checks)"
+          break
+        fi
+        
+        check_count=$((check_count + 1))
+        if check_docker_image_exists "${docker_repo}/${image_name}:${tag}"; then
+          fallback_tag="$tag"
+          break
+        fi
+      done
+      
+      if [ -z "$fallback_tag" ]; then
+        log_error "No available Docker tags found in registry (checked $check_count tags)"
+        log_error "Cannot proceed with update"
+        exit 1
       fi
-    done
-    
-    if [ -z "$fallback_tag" ]; then
-      log_error "No available Docker tags found in registry (checked $check_count tags)"
-      log_error "Cannot proceed with update"
+      
+      log_warning "Falling back to available tag: $fallback_tag"
+      target_tag="$fallback_tag"
+      docker_image="${docker_repo}/${image_name}:${target_tag}"
+    else
+      log_error "Docker image not available: $docker_image"
+      log_error "The specified tag may not have been built yet or may not exist in the registry"
       exit 1
     fi
-    
-    log_warning "Falling back to available tag: $fallback_tag"
-    latest_tag="$fallback_tag"
-    docker_image="${docker_repo}/${image_name}:${latest_tag}"
   fi
   
   # Update .env file
-  if update_env_version "$latest_tag"; then
+  if update_env_version "$target_tag"; then
     echo ""
     log_success "Version update completed successfully!"
     echo ""
@@ -632,6 +695,9 @@ fi
 # Execute version update if requested
 if [ "$UPDATE_LATEST" = true ]; then
   perform_version_update
+  echo ""
+elif [ -n "$UPDATE_TAG" ]; then
+  perform_version_update "$UPDATE_TAG"
   echo ""
 fi
 
