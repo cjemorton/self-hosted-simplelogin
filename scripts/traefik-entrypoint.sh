@@ -9,6 +9,9 @@ set -e
 LE_CHALLENGE="${LE_CHALLENGE:-tls}"
 LE_EMAIL="${LE_EMAIL:-${SUPPORT_EMAIL:-support@${DOMAIN}}}"
 
+# Test mode flag - if set, print command instead of executing
+DRY_RUN="${DRY_RUN:-false}"
+
 # Base Traefik configuration (common to both challenge types)
 TRAEFIK_ARGS="
     --accesslog=true
@@ -68,4 +71,8 @@ echo ""
 
 # Execute Traefik with the constructed arguments
 # shellcheck disable=SC2086
-exec /entrypoint.sh traefik $TRAEFIK_ARGS "$@"
+if [ "$DRY_RUN" = "true" ]; then
+    echo "DRY_RUN: Would execute: /entrypoint.sh traefik $TRAEFIK_ARGS $*"
+else
+    exec /entrypoint.sh traefik $TRAEFIK_ARGS "$@"
+fi
