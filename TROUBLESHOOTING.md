@@ -350,6 +350,61 @@ df -h
 docker system prune -a
 ```
 
+**Traefik container fails with "no such file or directory" error:**
+
+**Symptom:**
+```
+traefik  | exec /scripts/traefik-entrypoint.sh: no such file or directory
+traefik exited with code 255 (restarting)
+```
+
+**Cause:** This error occurs when Docker Compose cannot find the `scripts/traefik-entrypoint.sh` file to mount into the container. This happens when:
+1. You're running Docker Compose from a directory other than the repository root
+2. The `scripts/` directory is missing or was accidentally deleted
+3. The `scripts/traefik-entrypoint.sh` file is missing
+
+**Solution:**
+
+1. **Ensure you're in the repository root:**
+   ```bash
+   # Navigate to the repository root
+   cd /opt/simplelogin  # or wherever you cloned the repo
+   
+   # Verify you can see the scripts directory
+   ls -la scripts/traefik-entrypoint.sh
+   ```
+
+2. **Verify the file exists:**
+   ```bash
+   # Check if the script exists and is executable
+   test -f scripts/traefik-entrypoint.sh && echo "File exists" || echo "File missing"
+   test -x scripts/traefik-entrypoint.sh && echo "Executable" || echo "Not executable"
+   ```
+
+3. **Make the script executable (if needed):**
+   ```bash
+   chmod +x scripts/traefik-entrypoint.sh
+   ```
+
+4. **Run pre-flight check to validate setup:**
+   ```bash
+   # This will check for all required files including traefik-entrypoint.sh
+   bash scripts/preflight-check.sh
+   ```
+
+5. **Use Makefile for validation:**
+   ```bash
+   # Run validation before starting
+   make validate-traefik-script
+   make start
+   ```
+
+**Prevention:**
+- Always run Docker Compose commands from the repository root directory
+- Use `make start` or `make check` before starting services
+- Run `bash scripts/preflight-check.sh` before deployment
+- Ensure `.dockerignore` doesn't exclude the `scripts/` directory (our `.dockerignore` explicitly includes it)
+
 ### Email Delivery Problems
 
 **Symptom:** Emails not being sent or received

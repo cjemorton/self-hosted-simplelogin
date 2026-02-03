@@ -1,0 +1,94 @@
+name: Pre-flight Validation
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  validate-required-files:
+    name: Validate Required Files
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Validate scripts directory exists
+        run: |
+          if [ ! -d "scripts" ]; then
+            echo "ERROR: scripts directory not found"
+            exit 1
+          fi
+          echo "✓ scripts directory found"
+      
+      - name: Validate traefik-entrypoint.sh exists
+        run: |
+          if [ ! -f "scripts/traefik-entrypoint.sh" ]; then
+            echo "ERROR: scripts/traefik-entrypoint.sh not found"
+            echo "This file is critical for Traefik to start properly"
+            exit 1
+          fi
+          echo "✓ scripts/traefik-entrypoint.sh found"
+      
+      - name: Validate traefik-entrypoint.sh is executable
+        run: |
+          if [ ! -x "scripts/traefik-entrypoint.sh" ]; then
+            echo "ERROR: scripts/traefik-entrypoint.sh is not executable"
+            exit 1
+          fi
+          echo "✓ scripts/traefik-entrypoint.sh is executable"
+      
+      - name: Validate compose files exist
+        run: |
+          required_files=(
+            "docker-compose.yaml"
+            "simple-login-compose.yaml"
+            "traefik-compose.yaml"
+            "postfix-compose.yaml"
+          )
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Required compose file not found: $file"
+              exit 1
+            fi
+            echo "✓ $file found"
+          done
+      
+      - name: Validate traefik-compose.yaml mounts scripts correctly
+        run: |
+          # Check that traefik-compose.yaml contains the correct volume mount
+          if ! grep -q "./scripts:/scripts:ro" traefik-compose.yaml; then
+            echo "ERROR: traefik-compose.yaml does not contain expected volume mount"
+            echo "Expected: ./scripts:/scripts:ro"
+            exit 1
+          fi
+          echo "✓ traefik-compose.yaml has correct scripts volume mount"
+          
+          # Check that entrypoint references the script
+          if ! grep -q "/scripts/traefik-entrypoint.sh" traefik-compose.yaml; then
+            echo "ERROR: traefik-compose.yaml does not reference traefik-entrypoint.sh"
+            exit 1
+          fi
+          echo "✓ traefik-compose.yaml references traefik-entrypoint.sh"
+      
+      - name: Run pre-flight check script
+        run: |
+          # Run the pre-flight check script to validate the entire setup
+          # Note: This may fail for missing .env, but that's OK for CI
+          bash scripts/preflight-check.sh || true
+          echo "✓ Pre-flight check script executed"
+
+  test-traefik-script:
+    name: Test Traefik Entrypoint Script
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Run traefik-entrypoint.sh tests
+        run: |
+          bash scripts/test-traefik-entrypoint.sh

@@ -251,6 +251,35 @@ check_required_files() {
     fi
   done
   
+  # Check for scripts directory and required scripts
+  if [ ! -d "scripts" ]; then
+    log_fail "scripts directory not found"
+    log_info "The scripts directory is required for Docker Compose mounts"
+    log_info "Ensure you're running from the repository root"
+    all_files_ok=false
+  else
+    log_pass "scripts directory found"
+    
+    # Check for traefik-entrypoint.sh
+    if [ ! -f "scripts/traefik-entrypoint.sh" ]; then
+      log_fail "scripts/traefik-entrypoint.sh not found"
+      log_info "This script is required for Traefik to start properly"
+      log_info "It should be mounted into the Traefik container at /scripts/traefik-entrypoint.sh"
+      all_files_ok=false
+    else
+      log_pass "scripts/traefik-entrypoint.sh found"
+      
+      # Check if the script is executable
+      if [ ! -x "scripts/traefik-entrypoint.sh" ]; then
+        log_warn "scripts/traefik-entrypoint.sh is not executable"
+        log_info "Making it executable with: chmod +x scripts/traefik-entrypoint.sh"
+        chmod +x scripts/traefik-entrypoint.sh 2>/dev/null && log_pass "Made script executable" || log_fail "Failed to make script executable"
+      else
+        log_pass "scripts/traefik-entrypoint.sh is executable"
+      fi
+    fi
+  fi
+  
   if [ "$all_files_ok" = true ]; then
     return 0
   else
