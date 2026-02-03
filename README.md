@@ -456,6 +456,52 @@ Run SimpleLogin from Docker containers:
     - set the `POSTGRES_PASSWORD` to match the postgres credentials (when starting from scratch, set to a random key).
     - set the `FLASK_SECRET` to an arbitrary secret key.
 
+**Environment Configuration Files:**
+
+SimpleLogin provides two environment configuration example files to suit different needs:
+
+1. **`.env.example`** (Comprehensive Configuration)
+   - Complete configuration file with detailed documentation
+   - Explains every option, use case, and example
+   - Organized into logical sections (Docker, Database, App, Traefik, etc.)
+   - Recommended for initial setup and understanding all available options
+
+2. **`.env.minimal.example`** (Quick Reference)
+   - Minimal configuration with only essential keys
+   - Useful for quick reference or when you already understand the options
+   - Contains the same configuration variables, just less documentation
+
+**Important:** Both files must be kept in sync. Any changes to configuration variables in one file must be reflected in the other. This is a Copilot PR maintenance requirement to ensure consistency.
+
+To get started, use the comprehensive version:
+```bash
+cp .env.example .env
+```
+
+For a minimal starting point:
+```bash
+cp .env.minimal.example .env
+```
+
+**GitHub Repository Configuration for Version Updates:**
+
+If you're running a fork of SimpleLogin and want to track your own repository's releases (instead of the upstream SimpleLogin releases), you can configure the GitHub repository used for version fetching:
+
+- Set `SL_GITHUB_REPO_USER` to your GitHub username or organization (default: `simple-login`)
+- Set `SL_GITHUB_REPO_PROJECT` to your repository name (default: `app`)
+
+These settings control which GitHub repository is queried when using `scripts/up.sh --update-latest` to automatically fetch and update to the latest release version.
+
+**Example for a fork:**
+```bash
+SL_GITHUB_REPO_USER=myusername
+SL_GITHUB_REPO_PROJECT=my-simplelogin-fork
+```
+
+When you run `scripts/up.sh --update-latest`, it will now check `https://github.com/myusername/my-simplelogin-fork` for the latest release tag instead of the upstream SimpleLogin repository.
+
+**Default behavior:** If these variables are not set or left at their defaults (`simple-login/app`), the system tracks the upstream SimpleLogin releases.
+
 **Docker Image Versioning:**
 
 The startup scripts (`up.sh` and `startup.sh`) use `SL_VERSION` from `.env` as the **single source of truth** for Docker image versioning. Before starting containers, they automatically:
