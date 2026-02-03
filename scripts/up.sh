@@ -261,6 +261,11 @@ check_docker_login() {
 }
 
 # Function to fetch latest GitHub tag (or specific tag)
+# NOTE: All log_* functions used in this function output to stderr (>&2) to prevent
+# log messages from being captured when this function's output is assigned to a variable.
+# This is critical to avoid tag pollution bugs where Docker image names become malformed
+# like: "clem16/simplelogin-app:[INFO] Fetching latest tag... v1.0.0"
+# See: Tag validation and sanitization functions below for additional safeguards.
 fetch_latest_github_tag() {
   local github_repo="$1"
   local specific_tag="${2:-}"
