@@ -456,10 +456,11 @@ perform_version_update() {
     
     # Find the most recent tag that exists
     # Limit search to first 10 tags to avoid excessive API calls
-    log_info "Searching for latest available tag (checking up to $max_checks tags)..."
     local fallback_tag=""
     local check_count=0
     local max_checks=10
+    
+    log_info "Searching for latest available tag (checking up to $max_checks tags)..."
     
     for tag in $available_tags; do
       if [ $check_count -ge $max_checks ]; then
