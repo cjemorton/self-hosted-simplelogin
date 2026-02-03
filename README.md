@@ -478,7 +478,7 @@ This ensures you never accidentally try to pull a non-existent Docker image. The
 > ⚠️ **IMPORTANT: Always run Docker Compose from the repository root!**
 >
 > SimpleLogin uses relative volume mounts (e.g., `./scripts:/scripts:ro`) that require you to run all Docker Compose commands from the repository root directory. If you run from a different directory, the Traefik container will fail with:
-> ```
+> ```console
 > traefik  | exec /scripts/traefik-entrypoint.sh: no such file or directory
 > traefik exited with code 255
 > ```

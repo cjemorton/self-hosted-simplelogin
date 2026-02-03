@@ -10,6 +10,8 @@ jobs:
   validate-required-files:
     name: Validate Required Files
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout repository
@@ -84,6 +86,8 @@ jobs:
   test-traefik-script:
     name: Test Traefik Entrypoint Script
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout repository
