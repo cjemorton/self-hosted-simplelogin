@@ -519,6 +519,154 @@ test_docker_login_check_skip() {
   fi
 }
 
+# Test 26: Verify validate_tag function exists
+test_validate_tag_function() {
+  log_test "Checking if validate_tag function exists..."
+  
+  if grep -q "validate_tag()" scripts/up.sh; then
+    log_pass "validate_tag function found in up.sh"
+  else
+    log_fail "validate_tag function not found in up.sh"
+    return 1
+  fi
+  
+  # Check if it validates for spaces
+  if grep "validate_tag" scripts/up.sh -A20 | grep -q "spaces"; then
+    log_pass "validate_tag checks for spaces"
+  else
+    log_fail "validate_tag does not check for spaces"
+    return 1
+  fi
+  
+  # Check if it validates for newlines
+  if grep "validate_tag" scripts/up.sh -A20 | grep -q "newlines"; then
+    log_pass "validate_tag checks for newlines"
+  else
+    log_fail "validate_tag does not check for newlines"
+    return 1
+  fi
+}
+
+# Test 27: Verify sanitize_tag function exists
+test_sanitize_tag_function() {
+  log_test "Checking if sanitize_tag function exists..."
+  
+  if grep -q "sanitize_tag()" scripts/up.sh; then
+    log_pass "sanitize_tag function found in up.sh"
+  else
+    log_fail "sanitize_tag function not found in up.sh"
+    return 1
+  fi
+}
+
+# Test 28: Test tag validation logic
+test_tag_validation_multiline() {
+  log_test "Testing tag validation with simulated multi-line output..."
+  
+  # Create a temporary test script that sources the functions
+  local test_script=$(mktemp)
+  cat > "$test_script" << 'EOFTEST'
+#!/bin/bash
+# Extract and test validation functions
+source <(sed -n '/^validate_tag()/,/^}/p' scripts/up.sh)
+source <(sed -n '/^sanitize_tag()/,/^}/p' scripts/up.sh)
+
+# Override log functions to avoid dependency issues
+log_error() { echo "ERROR: $*" >&2; }
+
+# Test case 1: Clean tag should pass validation
+clean_tag="v2026.02.02-staging-test-04"
+if validate_tag "$clean_tag" 2>/dev/null; then
+  echo "PASS: Clean tag validation"
+else
+  echo "FAIL: Clean tag validation"
+  exit 1
+fi
+
+# Test case 2: Tag with spaces should fail validation
+polluted_tag="[INFO] Fetching latest tag v2026.02.02-staging-test-04"
+if ! validate_tag "$polluted_tag" 2>/dev/null; then
+  echo "PASS: Polluted tag validation correctly failed"
+else
+  echo "FAIL: Polluted tag should have failed validation"
+  exit 1
+fi
+
+# Test case 3: Sanitize should extract only the tag
+sanitized=$(sanitize_tag "$polluted_tag")
+if [ "$sanitized" = "$clean_tag" ]; then
+  echo "PASS: Tag sanitization extracted clean tag"
+else
+  echo "FAIL: Tag sanitization failed. Expected: $clean_tag, Got: $sanitized"
+  exit 1
+fi
+
+# Test case 4: Sanitized tag should pass validation
+if validate_tag "$sanitized" 2>/dev/null; then
+  echo "PASS: Sanitized tag validation"
+else
+  echo "FAIL: Sanitized tag validation failed"
+  exit 1
+fi
+EOFTEST
+
+  # Run the test script
+  if bash "$test_script" 2>&1 | grep -q "^FAIL"; then
+    log_fail "Tag validation tests failed"
+    rm -f "$test_script"
+    return 1
+  else
+    log_pass "Tag validation and sanitization tests passed"
+    rm -f "$test_script"
+  fi
+}
+
+# Test 29: Verify logging functions output to stderr
+test_logging_to_stderr() {
+  log_test "Checking if logging functions output to stderr..."
+  
+  # Check if log functions redirect to stderr (>&2)
+  if grep -A2 "^log_info()" scripts/up.sh | grep -q ">&2"; then
+    log_pass "log_info outputs to stderr"
+  else
+    log_fail "log_info does not output to stderr"
+    return 1
+  fi
+  
+  if grep -A2 "^log_success()" scripts/up.sh | grep -q ">&2"; then
+    log_pass "log_success outputs to stderr"
+  else
+    log_fail "log_success does not output to stderr"
+    return 1
+  fi
+  
+  if grep -A2 "^log_warning()" scripts/up.sh | grep -q ">&2"; then
+    log_pass "log_warning outputs to stderr"
+  else
+    log_fail "log_warning does not output to stderr"
+    return 1
+  fi
+}
+
+# Test 30: Verify tag sanitization is used in perform_version_update
+test_tag_sanitization_in_perform_version_update() {
+  log_test "Checking if tag sanitization is used in perform_version_update..."
+  
+  if grep "perform_version_update" scripts/up.sh -A100 | grep -q "sanitize_tag"; then
+    log_pass "perform_version_update uses sanitize_tag"
+  else
+    log_fail "perform_version_update does not use sanitize_tag"
+    return 1
+  fi
+  
+  if grep "perform_version_update" scripts/up.sh -A100 | grep -q "validate_tag"; then
+    log_pass "perform_version_update uses validate_tag"
+  else
+    log_fail "perform_version_update does not use validate_tag"
+    return 1
+  fi
+}
+
 # Main test execution
 main() {
   echo "=========================================="
@@ -583,6 +731,16 @@ main() {
   test_execution_order
   echo ""
   test_docker_login_check_skip
+  echo ""
+  test_validate_tag_function
+  echo ""
+  test_sanitize_tag_function
+  echo ""
+  test_tag_validation_multiline
+  echo ""
+  test_logging_to_stderr
+  echo ""
+  test_tag_sanitization_in_perform_version_update
   echo ""
   
   # Summary

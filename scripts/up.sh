@@ -222,12 +222,14 @@ done
 shift $((OPTIND-1))
 
 # Logging helper functions
+# All log functions output to stderr (>&2) to avoid polluting command substitution
+# when used inside functions whose output is captured with $()
 log_info() {
-  echo "[INFO] $*"
+  echo "[INFO] $*" >&2
 }
 
 log_success() {
-  echo "✓ $*"
+  echo "✓ $*" >&2
 }
 
 log_error() {
@@ -235,7 +237,7 @@ log_error() {
 }
 
 log_warning() {
-  echo "⚠️  WARNING: $*"
+  echo "⚠️  WARNING: $*" >&2
 }
 
 # Function to check Docker login status
@@ -327,6 +329,64 @@ fetch_latest_github_tag() {
   
   echo "$tag_name"
   return 0
+}
+
+# Function to validate and sanitize a tag value
+# Ensures the tag contains only valid characters and is not polluted with log output
+# Returns 0 if valid, 1 if invalid
+validate_tag() {
+  local tag="$1"
+  
+  # Check if tag is empty
+  if [ -z "$tag" ]; then
+    log_error "Tag validation failed: tag is empty"
+    return 1
+  fi
+  
+  # Check if tag contains newlines (indicates multi-line pollution)
+  # Use parameter expansion to check for newlines without echo
+  if [ "$tag" != "${tag//$'\n'/}" ]; then
+    log_error "Tag validation failed: tag contains newlines"
+    log_error "Malformed tag value: '$tag'"
+    log_error "This usually indicates log output polluting the tag extraction"
+    return 1
+  fi
+  
+  # Check if tag contains spaces (indicates log message pollution)
+  if [[ "$tag" =~ [[:space:]] ]]; then
+    log_error "Tag validation failed: tag contains spaces"
+    log_error "Malformed tag value: '$tag'"
+    log_error "This usually indicates log output polluting the tag extraction"
+    return 1
+  fi
+  
+  # Check if tag contains suspicious characters that shouldn't be in a version tag
+  # Valid characters: alphanumeric, dot, hyphen, underscore
+  if ! [[ "$tag" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+    log_error "Tag validation failed: tag contains invalid characters"
+    log_error "Malformed tag value: '$tag'"
+    log_error "Tags should only contain alphanumeric characters, dots, hyphens, and underscores"
+    return 1
+  fi
+  
+  # Tag is valid
+  return 0
+}
+
+# Function to sanitize a tag by extracting only the last word
+# This handles cases where log output may have polluted the tag variable
+# Example: "[INFO] Fetching... v1.0.0" -> "v1.0.0"
+sanitize_tag() {
+  local tag="$1"
+  
+  # Extract the last word (handles space-separated pollution)
+  # Use awk to get the last field, which should be the actual tag
+  local sanitized=$(echo "$tag" | awk '{print $NF}')
+  
+  # Remove any trailing/leading whitespace or newlines
+  sanitized=$(echo "$sanitized" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  
+  echo "$sanitized"
 }
 
 # Function to check if Docker image exists in registry
@@ -464,6 +524,19 @@ perform_version_update() {
   if [ $? -ne 0 ] || [ -z "$target_tag" ]; then
     log_error "Failed to fetch tag from GitHub"
     log_info "Network issue or GitHub API unavailable"
+    exit 1
+  fi
+  
+  # Sanitize the tag to remove any potential log output pollution
+  # This handles cases where log messages may have been captured with the tag
+  target_tag=$(sanitize_tag "$target_tag")
+  
+  # Validate the tag format to ensure it's clean and doesn't contain malformed data
+  # This prevents using tags like "clem16/simplelogin-app:[INFO] Fetching... v1.0.0"
+  if ! validate_tag "$target_tag"; then
+    log_error "Tag validation failed after fetching from GitHub"
+    log_error "The tag value appears to be malformed or polluted with log output"
+    log_error "Cannot proceed with Docker image update"
     exit 1
   fi
   
