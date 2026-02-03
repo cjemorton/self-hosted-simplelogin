@@ -490,7 +490,7 @@ If you're running a fork of SimpleLogin and want to track your own repository's 
 - Set `SL_GITHUB_REPO_USER` to your GitHub username or organization (default: `simple-login`)
 - Set `SL_GITHUB_REPO_PROJECT` to your repository name (default: `app`)
 
-These settings control which GitHub repository is queried when using `scripts/up.sh --update-latest` to automatically fetch and update to the latest release version.
+These settings control which GitHub repository is queried when using `scripts/up.sh --update-latest` or `scripts/up.sh --update-tag TAG` to automatically fetch and update to a tag version.
 
 **Example for a fork:**
 ```bash
@@ -498,9 +498,9 @@ SL_GITHUB_REPO_USER=myusername
 SL_GITHUB_REPO_PROJECT=my-simplelogin-fork
 ```
 
-When you run `scripts/up.sh --update-latest`, it will now check `https://github.com/myusername/my-simplelogin-fork` for the latest release tag instead of the upstream SimpleLogin repository.
+When you run `scripts/up.sh --update-latest` or `scripts/up.sh --update-tag v1.0.0`, it will now check `https://github.com/myusername/my-simplelogin-fork` for tags instead of the upstream SimpleLogin repository.
 
-**Default behavior:** If these variables are not set or left at their defaults (`simple-login/app`), the system tracks the upstream SimpleLogin releases.
+**Default behavior:** If these variables are not set or left at their defaults (`simple-login/app`), the system tracks the upstream SimpleLogin tags.
 
 **Docker Image Versioning:**
 
