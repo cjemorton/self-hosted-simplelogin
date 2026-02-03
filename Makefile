@@ -52,20 +52,20 @@ validate-traefik-script: ## Validate traefik-entrypoint.sh exists and is accessi
 
 start: validate-traefik-script ## Start SimpleLogin services
 	@echo "Starting SimpleLogin..."
-	./up.sh
+	bash scripts/up.sh
 
 up: start ## Alias for 'start' target
 
 stop: ## Stop all SimpleLogin services
 	@echo "Stopping SimpleLogin..."
-	./stop.sh
+	bash scripts/stop.sh
 
 down: stop ## Alias for 'stop' target
 
 restart: ## Restart all SimpleLogin services
 	@echo "Restarting SimpleLogin..."
-	./stop.sh
-	./up.sh
+	bash scripts/stop.sh
+	bash scripts/up.sh
 
 logs: ## Follow logs from all services
 	docker compose logs -f

@@ -237,9 +237,9 @@ check_required_files() {
   # Check for compose files
   local compose_files=(
     "docker-compose.yaml"
-    "simple-login-compose.yaml"
-    "traefik-compose.yaml"
-    "postfix-compose.yaml"
+    "config/simple-login-compose.yaml"
+    "config/traefik-compose.yaml"
+    "config/postfix-compose.yaml"
   )
   
   for file in "${compose_files[@]}"; do

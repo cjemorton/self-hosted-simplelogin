@@ -483,7 +483,7 @@ This ensures you never accidentally try to pull a non-existent Docker image. The
 > traefik exited with code 255
 > ```
 >
-> **Solution:** Ensure you're in the repository root (e.g., `/opt/simplelogin`) before running any Docker Compose commands. See the [Troubleshooting Guide](TROUBLESHOOTING.md) for more details.
+> **Solution:** Ensure you're in the repository root (e.g., `/opt/simplelogin`) before running any Docker Compose commands. See the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for more details.
 
 **Before starting the stack**, run the pre-flight check to validate your configuration:
 
@@ -692,12 +692,12 @@ This means the Docker image specified in your `.env` file does not exist (locall
 - By default, it waits 60 seconds for the database. Increase this if needed: `DB_WAIT_TIMEOUT=120` in `.env`
 - Check the migration logs: `docker logs sl-migration`
 - You should see: `[WARN] pg_isready not found, using Python/psycopg2 for database checks` followed by `[INFO] PostgreSQL is ready!`
-- See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#migration-failures) for detailed solutions
+- See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#migration-failures) for detailed solutions
 
 **Database connection issues:**
 - Verify your database credentials in `.env`
 - Check database status: `docker ps | grep sl-db`
-- See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#database-connection-issues)
+- See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#database-connection-issues)
 
 **For any other issues**, run the diagnostic tool and review the output:
 

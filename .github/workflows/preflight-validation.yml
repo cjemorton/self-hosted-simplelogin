@@ -44,9 +44,9 @@ jobs:
         run: |
           required_files=(
             "docker-compose.yaml"
-            "simple-login-compose.yaml"
-            "traefik-compose.yaml"
-            "postfix-compose.yaml"
+            "config/simple-login-compose.yaml"
+            "config/traefik-compose.yaml"
+            "config/postfix-compose.yaml"
           )
           
           for file in "${required_files[@]}"; do
@@ -59,20 +59,20 @@ jobs:
       
       - name: Validate traefik-compose.yaml mounts scripts correctly
         run: |
-          # Check that traefik-compose.yaml contains the correct volume mount
-          if ! grep -q "./scripts:/scripts:ro" traefik-compose.yaml; then
-            echo "ERROR: traefik-compose.yaml does not contain expected volume mount"
+          # Check that config/traefik-compose.yaml contains the correct volume mount
+          if ! grep -q "./scripts:/scripts:ro" config/traefik-compose.yaml; then
+            echo "ERROR: config/traefik-compose.yaml does not contain expected volume mount"
             echo "Expected: ./scripts:/scripts:ro"
             exit 1
           fi
-          echo "✓ traefik-compose.yaml has correct scripts volume mount"
+          echo "✓ config/traefik-compose.yaml has correct scripts volume mount"
           
           # Check that entrypoint references the script
-          if ! grep -q "/scripts/traefik-entrypoint.sh" traefik-compose.yaml; then
-            echo "ERROR: traefik-compose.yaml does not reference traefik-entrypoint.sh"
+          if ! grep -q "/scripts/traefik-entrypoint.sh" config/traefik-compose.yaml; then
+            echo "ERROR: config/traefik-compose.yaml does not reference traefik-entrypoint.sh"
             exit 1
           fi
-          echo "✓ traefik-compose.yaml references traefik-entrypoint.sh"
+          echo "✓ config/traefik-compose.yaml references traefik-entrypoint.sh"
       
       - name: Run pre-flight check script
         run: |
