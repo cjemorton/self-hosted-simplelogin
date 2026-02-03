@@ -262,11 +262,13 @@ fetch_latest_github_tag() {
       return 1
     fi
     
-    # Extract first tag name
-    local tag_name=$(echo "$response" | grep '"name":' | head -1 | sed 's/.*"name": "\(.*\)".*/\1/')
+    # Extract first tag name - use more precise pattern to avoid greedy matching
+    # Pattern: match "name": followed by whitespace and quoted string
+    local tag_name=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   else
-    # Extract tag_name from release
-    local tag_name=$(echo "$response" | grep '"tag_name":' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
+    # Extract tag_name from release - use more precise pattern to avoid greedy matching
+    # Pattern: match "tag_name": followed by whitespace and quoted string
+    local tag_name=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   fi
   
   if [ -z "$tag_name" ]; then
@@ -300,6 +302,8 @@ get_available_docker_tags() {
   log_info "Fetching available tags from Docker registry..."
   
   # For Docker Hub, use the registry API
+  # Note: This relies on Docker Hub API returning JSON with consistent formatting
+  # Expected format: {"results": [{"name": "tag1"}, {"name": "tag2"}, ...]}
   local api_url="https://registry.hub.docker.com/v2/repositories/${repo}/${image_name}/tags?page_size=100"
   local response=$(curl -s -f "$api_url" 2>/dev/null)
   
@@ -308,8 +312,9 @@ get_available_docker_tags() {
     return 1
   fi
   
-  # Extract tag names
-  local tags=$(echo "$response" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+  # Extract tag names using more precise pattern to avoid greedy matching
+  # Pattern: match "name": followed by whitespace and quoted string
+  local tags=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/')
   echo "$tags"
   return 0
 }
@@ -445,11 +450,19 @@ perform_version_update() {
     fi
     
     # Find the most recent tag that exists
-    log_info "Searching for latest available tag..."
+    # Limit search to first 10 tags to avoid excessive API calls
+    log_info "Searching for latest available tag (checking up to 10 tags)..."
     local fallback_tag=""
+    local check_count=0
+    local max_checks=10
     
-    # Try to find a tag (simple approach: use the first available tag)
     for tag in $available_tags; do
+      if [ $check_count -ge $max_checks ]; then
+        log_warning "Reached maximum tag check limit ($max_checks)"
+        break
+      fi
+      
+      check_count=$((check_count + 1))
       if check_docker_image_exists "${docker_repo}/${image_name}:${tag}"; then
         fallback_tag="$tag"
         break
@@ -457,7 +470,7 @@ perform_version_update() {
     done
     
     if [ -z "$fallback_tag" ]; then
-      log_error "No available Docker tags found in registry"
+      log_error "No available Docker tags found in registry (checked $check_count tags)"
       log_error "Cannot proceed with update"
       exit 1
     fi
