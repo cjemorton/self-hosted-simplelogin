@@ -799,15 +799,46 @@ perform_preflight_checks() {
   log_info "Performing preflight checks..."
   local checks_failed=false
   
-  # Check 1: .env file exists in root directory
-  if [ ! -f .env ]; then
-    log_error ".env file not found in the repository root!"
+  # Check 1: Verify we're in the repository root (check for key files)
+  if [ ! -f docker-compose.yaml ]; then
+    log_error "docker-compose.yaml not found in current directory!"
+    echo ""
+    echo "You must run this script from the repository root directory."
+    echo "Current directory: $(pwd)"
+    echo ""
+    echo "Please cd to the repository root before running this script:"
+    echo "  cd /opt/simplelogin  # or wherever you cloned the repository"
+    echo "  bash scripts/up.sh"
+    echo ""
+    checks_failed=true
+  fi
+  
+  # Check 2: .env file handling with smart fallback
+  # Priority: 1) config/.env, 2) root .env, 3) error  
+  # Note: With ${PWD} in compose files, .env can be in either location
+  local env_location=""
+  if [ -f config/.env ]; then
+    log_success "Found .env file in config/ directory"
+    env_location="config/.env"
+  elif [ -f .env ]; then
+    log_success "Found .env file in root directory"
+    env_location=".env"
+  else
+    log_error "No .env file found!"
     echo ""
     echo "The .env file is required for configuration."
-    echo "Please copy .env.example to .env and configure it:"
-    echo "  cp .env.example .env"
     echo ""
-    echo "Then edit .env and set your values. Required variables include:"
+    echo "Options for creating .env file:"
+    echo "  1. Copy example to root (recommended):"
+    echo "     cp .env.example .env"
+    echo ""
+    echo "  2. Copy example to config/ directory:"
+    echo "     cp .env.example config/.env"
+    echo ""
+    echo "  3. Use minimal example:"
+    echo "     cp .env.minimal.example .env"
+    echo ""
+    echo "After creating .env, edit it and set required values:"
     echo "  - DOMAIN (your domain name)"
     echo "  - POSTGRES_USER and POSTGRES_PASSWORD"
     echo "  - FLASK_SECRET"
@@ -815,7 +846,7 @@ perform_preflight_checks() {
     checks_failed=true
   fi
   
-  # Check 2: postfix directory exists
+  # Check 3: postfix directory exists
   if [ ! -d postfix ]; then
     log_error "postfix directory not found in the repository root!"
     echo ""
@@ -830,20 +861,6 @@ perform_preflight_checks() {
     echo ""
     echo "If you cloned the repository, this directory should already exist."
     echo "Please verify your repository clone is complete and not corrupted."
-    echo ""
-    checks_failed=true
-  fi
-  
-  # Check 3: Verify we're in the repository root (check for key files)
-  if [ ! -f docker-compose.yaml ]; then
-    log_error "docker-compose.yaml not found in current directory!"
-    echo ""
-    echo "You must run this script from the repository root directory."
-    echo "Current directory: $(pwd)"
-    echo ""
-    echo "Please cd to the repository root before running this script:"
-    echo "  cd /opt/simplelogin  # or wherever you cloned the repository"
-    echo "  bash scripts/up.sh"
     echo ""
     checks_failed=true
   fi

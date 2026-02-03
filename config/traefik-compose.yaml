@@ -26,7 +26,7 @@ services:
     ##
     ## For debugging, you can add: - --log.level=DEBUG
     ## For staging LE server, uncomment the caserver line in traefik-entrypoint.sh
-    env_file: ${SL_CONFIG_PATH:-.env}
+    env_file: ${SL_CONFIG_PATH:-${PWD:-.}/.env}
     ports:
       - "80:80"
       - "443:443"
@@ -35,7 +35,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-acme:/etc/traefik/acme
-      - ./scripts:/scripts:ro
+      - ${PWD:-.}/scripts:/scripts:ro
     extra_hosts:
       - host.docker.internal:host-gateway
     healthcheck:

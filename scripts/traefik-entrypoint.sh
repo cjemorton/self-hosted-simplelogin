@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Traefik Entrypoint Script
 # Conditionally configures Traefik based on LE_CHALLENGE environment variable
 # This ensures only the appropriate ACME challenge type is enabled
