@@ -195,8 +195,9 @@ if [ -n "$DOMAIN" ] && [ -n "$SUBDOMAIN" ]; then
     # Port check (80 and 443)
     echo ""
     echo "Port accessibility from container:"
-    docker exec traefik sh -c "command -v nc >/dev/null && nc -zv host.docker.internal 80 2>&1" | sed 's/^/  /' || echo "  nc not available"
-    docker exec traefik sh -c "command -v nc >/dev/null && nc -zv host.docker.internal 443 2>&1" | sed 's/^/  /' || echo "  nc not available"
+    echo "  Note: Testing 'host.docker.internal' (may not work on all Docker setups)"
+    docker exec traefik sh -c "command -v nc >/dev/null && nc -zv host.docker.internal 80 2>&1" | sed 's/^/  /' || echo "  nc not available or host.docker.internal not accessible"
+    docker exec traefik sh -c "command -v nc >/dev/null && nc -zv host.docker.internal 443 2>&1" | sed 's/^/  /' || echo "  nc not available or host.docker.internal not accessible"
 fi
 echo ""
 

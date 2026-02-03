@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Traefik Entrypoint Script
 # Conditionally configures Traefik based on LE_CHALLENGE environment variable
 # This ensures only the appropriate ACME challenge type is enabled
@@ -50,7 +50,7 @@ if [ "$LE_CHALLENGE" = "dns" ]; then
     echo "INFO: Certificate resolver 'dns' will be used"
     
 else
-    echo "INFO: Configuring Traefik for TLS-ALPN (HTTP-01) ACME challenge"
+    echo "INFO: Configuring Traefik for TLS-ALPN-01 ACME challenge"
     
     # TLS challenge configuration - only define 'tls' resolver
     TRAEFIK_ARGS="$TRAEFIK_ARGS
@@ -59,7 +59,7 @@ else
         --certificatesresolvers.tls.acme.tlschallenge=true
     "
     
-    echo "INFO: TLS-ALPN challenge configured successfully"
+    echo "INFO: TLS-ALPN-01 challenge configured successfully"
     echo "INFO: Certificate resolver 'tls' will be used"
 fi
 
