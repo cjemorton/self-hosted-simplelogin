@@ -738,16 +738,46 @@ Should return:
 *.mydomain.com. 3600  IN  MX    10 app.mydomain.com
 ```
 
-SSL-Certificates are requested from [Let`s Encrypt](https://letsencrypt.org/).
-Traefik is (by default) configured to use TLS-ALPN Challenge, because this works out-of-the-box without further
-configuration, as long as DNS resolves to your server.
+SSL-Certificates are requested from [Let's Encrypt](https://letsencrypt.org/).
 
-Disadvantage of this configuration is, that letsencrypt does not allow requesting wildcard certificates via TLS Challenge.
+**Traefik ACME Challenge Configuration:**
+
+Traefik supports two types of ACME challenges for Let's Encrypt certificates:
+
+1. **TLS-ALPN Challenge (default)** - `LE_CHALLENGE=tls`
+   - ✅ Works out-of-the-box, no additional configuration needed
+   - ✅ Fast certificate issuance
+   - ❌ Cannot issue wildcard certificates (`*.domain.com`)
+   - ❌ Requires ports 80 and 443 publicly accessible
+
+2. **DNS Challenge** - `LE_CHALLENGE=dns`
+   - ✅ Can issue wildcard certificates (`*.domain.com`)
+   - ✅ Works behind firewalls, no public ports needed
+   - ❌ Requires DNS provider API configuration
+   - ❌ Slightly slower certificate issuance
 
 To request a wildcard certificate, edit `.env` file to set `LE_CHALLENGE=dns`, identify your DNS provider
-by setting `LE_DNS_PROVIDER`, and provide further details (i.e. credentials/API-Key, depending on your DNS provider) as ENV.
+by setting `LE_DNS_PROVIDER`, and provide credentials (API key/token) for your DNS provider.
 
-You can find all supported DNS providers and corresponding instructions here: <https://go-acme.github.io/lego/dns/>
+**Example for Cloudflare:**
+```env
+LE_CHALLENGE=dns
+LE_DNS_PROVIDER=cloudflare
+CF_DNS_API_TOKEN=your-cloudflare-api-token
+```
+
+See [TRAEFIK_ACME_TROUBLESHOOTING.md](TRAEFIK_ACME_TROUBLESHOOTING.md) for detailed configuration and troubleshooting.
+
+You can find all supported DNS providers here: <https://go-acme.github.io/lego/dns/>
+
+**Verify Configuration:**
+```bash
+# Check which ACME challenge is active
+docker logs traefik --tail 30 | grep "INFO: Configuring"
+
+# Run comprehensive diagnostics
+bash scripts/traefik-diagnostics.sh
+```
 
 #### DNS-01 Pre-flight Check
 

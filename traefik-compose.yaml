@@ -11,33 +11,21 @@ services:
     container_name: traefik
     restart: ${RESTART_POLICY:-unless-stopped}
     logging: *default-logging
-    command:
-      # - --log.level=DEBUG
-      - --accesslog=true
-      - --ping=true
-      # - --metrics.prometheus=true
-      - --global.sendanonymoususage=false
-      - --providers.docker.exposedByDefault=false
-      - --providers.docker.network=traefik
-      - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.websecure.http.tls.certresolver=${LE_CHALLENGE:-tls}
-      - --certificatesresolvers.tls.acme.storage=/etc/traefik/acme/acme-tls.json
-      - --certificatesresolvers.tls.acme.email=${LE_EMAIL:-${SUPPORT_EMAIL:-support@${DOMAIN}}}
-      ## uncomment for LE-STAGING server, to avoid exceeding LetsEncrypt quota when fiddling with a new configuration
-      #- --certificatesresolvers.tls.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
-      - --certificatesresolvers.tls.acme.tlschallenge=true
-      - --certificatesresolvers.dns.acme.storage=/etc/traefik/acme/acme-dns.json
-      - --certificatesresolvers.dns.acme.email=${LE_EMAIL:-${SUPPORT_EMAIL:-support@${DOMAIN}}}
-      ## uncomment for LE-STAGING server, to avoid exceeding LetsEncrypt quota when fiddling with a new configuration
-      #- --certificatesresolvers.dns.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
-      - --certificatesresolvers.dns.acme.dnschallenge=true
-      - --certificatesresolvers.dns.acme.dnschallenge.provider=${LE_DNS_PROVIDER}
-      ## load plugin to support static response on "mta-sts" subdomain
-      - --experimental.plugins.staticresponse.moduleName=github.com/jdel/staticresponse
-      - --experimental.plugins.staticresponse.version=v0.0.1
+    entrypoint: ["/scripts/traefik-entrypoint.sh"]
+    ## Note: Traefik configuration is now handled by the entrypoint script
+    ## which conditionally configures only the appropriate ACME challenge type
+    ## based on the LE_CHALLENGE environment variable.
+    ## 
+    ## To use TLS-ALPN challenge (default):
+    ##   LE_CHALLENGE=tls (or leave unset)
+    ## 
+    ## To use DNS-01 challenge (for wildcard certificates):
+    ##   LE_CHALLENGE=dns
+    ##   LE_DNS_PROVIDER=cloudflare (or other supported provider)
+    ##   [Provider-specific credentials - see .env.example]
+    ##
+    ## For debugging, you can add: - --log.level=DEBUG
+    ## For staging LE server, uncomment the caserver line in traefik-entrypoint.sh
     env_file: ${SL_CONFIG_PATH:-.env}
     ports:
       - "80:80"
@@ -47,6 +35,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-acme:/etc/traefik/acme
+      - ./scripts:/scripts:ro
     extra_hosts:
       - host.docker.internal:host-gateway
     healthcheck:
