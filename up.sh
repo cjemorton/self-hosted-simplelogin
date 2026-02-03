@@ -264,10 +264,14 @@ fetch_latest_github_tag() {
     
     # Extract first tag name - use more precise pattern to avoid greedy matching
     # Pattern: match "name": followed by whitespace and quoted string
+    # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
+    # Expected JSON: {"name": "v1.0.0", ...} or {"name":"v1.0.0",...}
     local tag_name=$(echo "$response" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   else
     # Extract tag_name from release - use more precise pattern to avoid greedy matching
     # Pattern: match "tag_name": followed by whitespace and quoted string
+    # Note: Using grep/sed for JSON parsing to avoid external dependencies (jq)
+    # Expected JSON: {"tag_name": "v1.0.0", ...} or {"tag_name":"v1.0.0",...}
     local tag_name=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   fi
   
@@ -303,6 +307,7 @@ get_available_docker_tags() {
   
   # For Docker Hub, use the registry API
   # Note: This relies on Docker Hub API returning JSON with consistent formatting
+  # Using grep/sed for JSON parsing to avoid external dependencies (jq)
   # Expected format: {"results": [{"name": "tag1"}, {"name": "tag2"}, ...]}
   local api_url="https://registry.hub.docker.com/v2/repositories/${repo}/${image_name}/tags?page_size=100"
   local response=$(curl -s -f "$api_url" 2>/dev/null)
@@ -451,7 +456,7 @@ perform_version_update() {
     
     # Find the most recent tag that exists
     # Limit search to first 10 tags to avoid excessive API calls
-    log_info "Searching for latest available tag (checking up to 10 tags)..."
+    log_info "Searching for latest available tag (checking up to $max_checks tags)..."
     local fallback_tag=""
     local check_count=0
     local max_checks=10
